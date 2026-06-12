@@ -1,27 +1,59 @@
-import os
 import requests
 
-def url_reputation_check(args: dict):
-    url = args.get("url")
+def url_reputation_check(url: str):
+    """
+    MCP TOOL: Checks URL reputation using external request-based heuristics.
+    """
 
-    if not url:
-        return {"error": "missing url"}
+    try:
+        response = requests.get(url, timeout=5)
+        status_code = response.status_code
 
-    api_key = os.getenv("VT_API_KEY")
+        suspicious_indicators = [
+            "login",
+            "verify",
+            "secure",
+            "update",
+            "bank",
+            "account"
+        ]
 
-    if not api_key:
-        return {"error": "missing VT_API_KEY"}
+        risk_score = 0
 
-    headers = {"x-apikey": api_key}
+        # Heuristic analysis
+        if status_code != 200:
+            risk_score += 2
 
-    # Step 1: submit URL
-    submit = requests.post(
-        "https://www.virustotal.com/api/v3/urls",
-        headers=headers,
-        data={"url": url}
-    )
+        for word in suspicious_indicators:
+            if word in url.lower():
+                risk_score += 1
 
-    return {
-        "submitted": submit.status_code,
-        "raw": submit.json() if submit.ok else submit.text
-    }
+        if url.startswith("http://"):
+            risk_score += 1
+
+        # Classification
+        if risk_score >= 4:
+            verdict = "malicious"
+            risk = "high"
+        elif risk_score >= 2:
+            verdict = "suspicious"
+            risk = "medium"
+        else:
+            verdict = "safe"
+            risk = "low"
+
+        return {
+            "url": url,
+            "status_code": status_code,
+            "risk_score": risk_score,
+            "risk_level": risk,
+            "verdict": verdict
+        }
+
+    except Exception as e:
+        return {
+            "url": url,
+            "error": str(e),
+            "risk_level": "medium",
+            "verdict": "suspicious"
+        }

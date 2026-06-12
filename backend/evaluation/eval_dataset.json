@@ -1,62 +1,17 @@
 [
-  {
-    "input": "Check http://malicious-login.com",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check http://google.com",
-    "expected": "safe"
-  },
-  {
-    "input": "Check http://secure-paypal-login.verify-user.com",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check https://microsoft.com",
-    "expected": "safe"
-  },
-  {
-    "input": "Check http://free-gift-card-now.ru",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check http://login-facebook-security-alert.com",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check https://github.com",
-    "expected": "safe"
-  },
-  {
-    "input": "Check http://update-your-account-info.com",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check https://openai.com",
-    "expected": "safe"
-  },
-  {
-    "input": "Check http://verify-bank-account-secure.com",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check https://wikipedia.org",
-    "expected": "safe"
-  },
-  {
-    "input": "Check http://amazon-security-login-alert.com",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check https://linkedin.com",
-    "expected": "safe"
-  },
-  {
-    "input": "Check http://urgent-password-reset-required.net",
-    "expected": "malicious"
-  },
-  {
-    "input": "Check https://netflix.com",
-    "expected": "safe"
-  }
+  { "input": "Check http://malicious-login.com", "expected": "malicious" },
+  { "input": "Check http://google.com", "expected": "safe" },
+  { "input": "Check http://secure-paypal-login.verify.com", "expected": "malicious" },
+  { "input": "Check https://github.com", "expected": "safe" },
+  { "input": "Check http://free-gift-card-now.ru", "expected": "malicious" },
+  { "input": "Check https://openai.com", "expected": "safe" },
+  { "input": "Check http://bank-account-verify-alert.com", "expected": "malicious" },
+  { "input": "Check https://wikipedia.org", "expected": "safe" },
+  { "input": "Check http://update-password-required.net", "expected": "malicious" },
+  { "input": "Check https://netflix.com", "expected": "safe" },
+  { "input": "Check http://login-security-alert-facebook.com", "expected": "malicious" },
+  { "input": "Check https://microsoft.com", "expected": "safe" },
+  { "input": "Check http://verify-account-secure-pay.com", "expected": "malicious" },
+  { "input": "Check https://linkedin.com", "expected": "safe" },
+  { "input": "Check http://urgent-security-update.net", "expected": "malicious" }
 ]

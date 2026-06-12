@@ -1,105 +1,46 @@
-from app.core.llm import call_llm
-from app.core.tool_registry import run_tool
 import json
-
-
-SYSTEM_PROMPT = """
-You are SentinelAI, an autonomous SOC analyst.
-
-You analyze URLs, emails, and security inputs.
-
-You MUST behave as an agent:
-- Decide when tools are needed
-- Call tools if needed
-- Use tool outputs before final decision
-
-TOOLS AVAILABLE:
-- url_reputation_check: checks URL reputation
-
-OUTPUT FORMAT RULES:
-
-If tool is needed:
-{
-  "tool": "tool_name",
-  "args": {}
-}
-
-If final answer:
-{
-  "final": true,
-  "threat_level": "low|medium|high",
-  "explanation": "...",
-  "verdict": "safe|malicious",
-  "evidence": "..."
-}
-"""
+from app.core.llm_client import call_llm
+from app.core.tool_registry import execute_tool
+from app.prompts.system_prompt import load_system_prompt
 
 
 def run_agent(user_input: str):
+    """
+    Agentic loop:
+    LLM decides tool usage → tool executes → LLM re-evaluates → final answer
+    """
+
+    system_prompt = load_system_prompt()
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_input}
     ]
 
-    trace = []
+    max_iterations = 3
 
-    for _ in range(5):  # safety loop
+    for _ in range(max_iterations):
 
         response = call_llm(messages)
 
-        # parse safely
+        # Try parse tool call
         try:
-            data = json.loads(response)
-        except:
-            return {
-                "error": "LLM did not return valid JSON",
-                "raw": response
-            }
+            tool_call = json.loads(response)
 
-        # -------------------------
-        # TOOL CALL
-        # -------------------------
-        if "tool" in data:
+            if "tool" in tool_call:
+                tool_name = tool_call["tool"]
+                args = tool_call.get("args", {})
 
-            tool_name = data["tool"]
-            tool_args = data.get("args", {})
+                tool_result = execute_tool(tool_name, args)
 
-            trace.append({
-                "step": "tool_call",
-                "tool": tool_name,
-                "args": tool_args
-            })
+                # feed tool result back into model
+                messages.append({"role": "assistant", "content": response})
+                messages.append({"role": "tool", "content": json.dumps(tool_result)})
 
-            result = run_tool(tool_name, tool_args)
+                continue
 
-            trace.append({
-                "step": "tool_result",
-                "result": result
-            })
+        except Exception:
+            # Not a tool call → final answer
+            return response
 
-            messages.append({
-                "role": "tool",
-                "content": json.dumps(result)
-            })
-
-            continue
-
-        # -------------------------
-        # FINAL ANSWER
-        # -------------------------
-        if data.get("final"):
-
-            trace.append({
-                "step": "final",
-                "result": data
-            })
-
-            return {
-                "result": data,
-                "trace": trace
-            }
-
-    return {
-        "error": "max iterations reached",
-        "trace": trace
-    }
+    return response
