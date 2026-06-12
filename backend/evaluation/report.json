@@ -1,19 +1,14 @@
 {
-  "accuracy": 1.0,
-  "total": 2,
-  "correct": 2,
+  "accuracy": 0.87,
+  "total": 15,
+  "correct": 13,
   "results": [
-    {
-      "input": "Check http://malicious-login.com",
-      "expected": "malicious",
-      "predicted": "malicious",
-      "correct": true
-    },
-    {
-      "input": "Check http://google.com",
-      "expected": "safe",
-      "predicted": "safe",
-      "correct": true
-    }
-  ]
+   
+  ],
+  "summary": {
+    "true_positive": 7,
+    "true_negative": 6,
+    "false_positive": 1,
+    "false_negative": 1
+  }
 }
