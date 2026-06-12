@@ -1,0 +1,14 @@
+[
+  {
+    "input": "Check http://malicious-login.com",
+    "expected": "malicious"
+  },
+  {
+    "input": "Check https://google.com",
+    "expected": "safe"
+  },
+  {
+    "input": "Analyze http://phishing-site.com/login",
+    "expected": "malicious"
+  }
+]

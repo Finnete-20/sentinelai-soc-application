@@ -1,0 +1,15 @@
+# secrets
+.env
+.env.*
+*.key
+
+# python
+__pycache__/
+*.pyc
+
+# node
+node_modules/
+
+# builds
+dist/
+build/
