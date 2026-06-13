@@ -1,46 +1,135 @@
 import json
-from app.core.llm_client import call_llm
-from app.core.tool_registry import execute_tool
-from app.prompts.system_prompt import load_system_prompt
+
+from app.core.llm_client import run_llm
+from app.core.tool_registry import TOOLS
 
 
-def run_agent(user_input: str):
-    """
-    Agentic loop:
-    LLM decides tool usage → tool executes → LLM re-evaluates → final answer
-    """
+MAX_STEPS = 8
 
-    system_prompt = load_system_prompt()
+
+def parse_tool_call(response: str):
+
+    try:
+
+        if not response.lower().startswith("tool:"):
+            return None, None
+
+        parts = response.split("|")
+
+        tool_name = (
+            parts[0]
+            .replace("tool:", "")
+            .strip()
+        )
+
+        tool_input = (
+            parts[1].strip()
+            if len(parts) > 1
+            else ""
+        )
+
+        return tool_name, tool_input
+
+    except Exception:
+        return None, None
+
+
+def execute_tool(tool_name, tool_input):
+
+    if tool_name not in TOOLS:
+
+        return {
+            "error": f"Unknown tool: {tool_name}"
+        }
+
+    tool = TOOLS[tool_name]
+
+    fn = tool["function"]
+
+    schema = tool["input_schema"]
+
+    field_name = list(schema.keys())[0]
+
+    kwargs = {
+        field_name: tool_input
+    }
+
+    return fn(**kwargs)
+
+
+def run_agent_graph(user_input, client=None):
 
     messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_input}
+        {
+            "role": "user",
+            "content": user_input
+        }
     ]
 
-    max_iterations = 3
+    investigation_log = []
 
-    for _ in range(max_iterations):
+    step = 0
 
-        response = call_llm(messages)
+    response = run_llm(messages, client)
 
-        # Try parse tool call
-        try:
-            tool_call = json.loads(response)
+    while step < MAX_STEPS:
 
-            if "tool" in tool_call:
-                tool_name = tool_call["tool"]
-                args = tool_call.get("args", {})
+        if (
+            isinstance(response, str)
+            and response.lower().startswith("tool:")
+        ):
 
-                tool_result = execute_tool(tool_name, args)
+            tool_name, tool_input = (
+                parse_tool_call(response)
+            )
 
-                # feed tool result back into model
-                messages.append({"role": "assistant", "content": response})
-                messages.append({"role": "tool", "content": json.dumps(tool_result)})
+            result = execute_tool(
+                tool_name,
+                tool_input
+            )
 
-                continue
+            investigation_log.append({
+                "tool": tool_name,
+                "input": tool_input,
+                "result": result
+            })
 
-        except Exception:
-            # Not a tool call → final answer
-            return response
+            messages.append({
+                "role": "assistant",
+                "content": response
+            })
 
-    return response
+            messages.append({
+                "role": "tool",
+                "content": json.dumps(result)
+            })
+
+            response = run_llm(
+                messages,
+                client
+            )
+
+            step += 1
+
+            continue
+
+        break
+
+    try:
+
+        final_response = json.loads(response)
+
+        final_response[
+            "investigation_log"
+        ] = investigation_log
+
+        return final_response
+
+    except Exception:
+
+        return {
+            "verdict": "suspicious",
+            "confidence": 0.5,
+            "reason": response,
+            "investigation_log": investigation_log
+        }
