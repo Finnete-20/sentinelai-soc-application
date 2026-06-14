@@ -15,7 +15,6 @@ def build_openai_tools():
     for name, details in TOOLS.items():
 
         properties = {}
-
         required = []
 
         for field in details["input_schema"]:
@@ -65,46 +64,6 @@ def execute_tool(tool_name, arguments):
         }
 
 
-def auto_correlate(
-    tool_name,
-    tool_result,
-    investigation_log
-):
-
-    try:
-
-        if tool_name == "analyze_email":
-
-            findings = " ".join(
-                tool_result.get(
-                    "findings",
-                    []
-                )
-            )
-
-            mitre = execute_tool(
-                "mitre_mapper",
-                {
-                    "evidence":
-                    findings +
-                    " phishing impersonation"
-                }
-            )
-
-            investigation_log.append(
-                {
-                    "tool": "mitre_mapper",
-                    "arguments": {
-                        "evidence": findings
-                    },
-                    "result": mitre
-                }
-            )
-
-    except Exception:
-        pass
-
-
 def extract_indicators(text):
 
     emails = re.findall(
@@ -137,10 +96,6 @@ def run_agent_graph(user_input):
     indicators = extract_indicators(
         user_input
     )
-
-    # ==================================
-    # Memory Correlation
-    # ==================================
 
     for email in indicators["emails"]:
 
@@ -179,10 +134,6 @@ def run_agent_graph(user_input):
                 "result": memory
             }
         )
-
-    # ==================================
-    # CVE Correlation
-    # ==================================
 
     for cve in indicators["cves"]:
 
@@ -228,7 +179,6 @@ def run_agent_graph(user_input):
             return {
                 "verdict": "error",
                 "confidence": 0,
-                "risk_score": 0,
                 "incident_type": "system_error",
                 "reason": str(e),
                 "investigation_log": investigation_log
@@ -260,85 +210,15 @@ def run_agent_graph(user_input):
             except Exception:
 
                 result = {
-                    "verdict": "suspicious",
-                    "confidence": 0.5,
-                    "risk_score": 5,
-                    "incident_type": "unknown",
+                    "verdict": "error",
+                    "confidence": 0,
+                    "incident_type": "parse_error",
                     "reason": str(
                         message.content
                     ),
                     "mitre_findings": [],
                     "cve_findings": []
                 }
-
-            # ==========================
-            # MITRE COLLECTION
-            # ==========================
-
-            mitre_findings = []
-
-            for item in investigation_log:
-
-                if item["tool"] == "mitre_mapper":
-
-                    matches = item[
-                        "result"
-                    ].get(
-                        "matches",
-                        []
-                    )
-
-                    mitre_findings.extend(
-                        matches
-                    )
-
-            result[
-                "mitre_findings"
-            ] = mitre_findings
-
-            # ==========================
-            # MEMORY RISK BOOST
-            # ==========================
-
-            memory_hits = 0
-
-            for item in investigation_log:
-
-                if item["tool"] == "memory_lookup":
-
-                    memory_hits += (
-                        item["result"].get(
-                            "matches_found",
-                            0
-                        )
-                    )
-
-            result["risk_score"] = (
-                result.get(
-                    "risk_score",
-                    0
-                )
-                + min(
-                    memory_hits,
-                    3
-                )
-            )
-
-            if result["risk_score"] >= 8:
-
-                result["verdict"] = (
-                    "malicious"
-                )
-
-            elif result["risk_score"] >= 4:
-
-                result["verdict"] = (
-                    "suspicious"
-                )
-
-            # ==========================
-            # SINGLE REPORT GENERATION
-            # ==========================
 
             report = execute_tool(
                 "generate_executive_report",
@@ -423,12 +303,6 @@ def run_agent_graph(user_input):
                 }
             )
 
-            auto_correlate(
-                tool_name,
-                tool_result,
-                investigation_log
-            )
-
             messages.append(
                 {
                     "role": "tool",
@@ -444,13 +318,9 @@ def run_agent_graph(user_input):
         tool_calls_count += 1
 
     return {
-        "verdict": "suspicious",
-        "confidence": 0.5,
-        "risk_score": 5,
-        "incident_type":
-        "system_error",
-        "reason":
-        "Maximum tool calls exceeded.",
-        "investigation_log":
-        investigation_log
+        "verdict": "error",
+        "confidence": 0,
+        "incident_type": "system_error",
+        "reason": "Maximum tool calls exceeded.",
+        "investigation_log": investigation_log
     }
