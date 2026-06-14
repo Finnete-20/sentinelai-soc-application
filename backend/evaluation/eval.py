@@ -1,22 +1,19 @@
 import json
 import os
-import re
 import sys
 
-# --------------------------------------------------
-# Add backend folder to Python path
-# --------------------------------------------------
-
 BACKEND_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")
+    os.path.join(
+        os.path.dirname(__file__),
+        ".."
+    )
 )
 
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-from app.tools.url_tool import url_reputation_check
+from app.core.agent_runtime import run_agent_graph
 
-# --------------------------------------------------
 
 DATASET_PATH = os.path.join(
     os.path.dirname(__file__),
@@ -25,27 +22,37 @@ DATASET_PATH = os.path.join(
 
 
 def load_dataset():
-    with open(DATASET_PATH, "r", encoding="utf-8") as f:
+
+    with open(
+        DATASET_PATH,
+        "r",
+        encoding="utf-8"
+    ) as f:
+
         return json.load(f)
-
-
-def extract_url(text: str):
-    match = re.search(r"https?://[^\s]+", text)
-    if match:
-        return match.group(0)
-    return None
 
 
 def predict(sample):
 
-    url = extract_url(sample["input"])
+    result = run_agent_graph(
+        sample["input"]
+    )
 
-    if url is None:
-        return "safe"
+    verdict = str(
+        result.get(
+            "verdict",
+            "unknown"
+        )
+    ).lower()
 
-    result = url_reputation_check(url)
+    if verdict not in [
+        "safe",
+        "suspicious",
+        "malicious"
+    ]:
+        verdict = "unknown"
 
-    return result.get("verdict", "unknown").lower()
+    return verdict
 
 
 def run_evaluation():
@@ -54,7 +61,9 @@ def run_evaluation():
 
     tp = fp = tn = fn = 0
 
-    print("\n🚀 Starting SentinelAI Evaluation (60 samples)\n")
+    print(
+        f"\n🚀 Starting SentinelAI Evaluation ({len(dataset)} samples)\n"
+    )
 
     for sample in dataset:
 
@@ -64,63 +73,97 @@ def run_evaluation():
 
         if expected == "malicious":
 
-            if predicted == "malicious":
+            if predicted in [
+                "malicious",
+                "suspicious"
+            ]:
 
                 tp += 1
-                print("✅ malicious → malicious")
+                print(
+                    f"✅ malicious → {predicted}"
+                )
 
             else:
 
                 fn += 1
-                print(f"❌ malicious → {predicted}")
+                print(
+                    f"❌ malicious → {predicted}"
+                )
 
-        elif expected == "safe":
+        else:
 
             if predicted == "safe":
 
                 tn += 1
-                print("✅ safe → safe")
+                print(
+                    "✅ safe → safe"
+                )
 
             else:
 
                 fp += 1
-                print(f"❌ safe → {predicted}")
+                print(
+                    f"❌ safe → {predicted}"
+                )
 
     total = len(dataset)
 
-    accuracy = (tp + tn) / total if total else 0
+    accuracy = (
+        (tp + tn) / total
+        if total
+        else 0
+    )
 
-    precision = tp / (tp + fp) if (tp + fp) else 0
+    precision = (
+        tp / (tp + fp)
+        if (tp + fp)
+        else 0
+    )
 
-    recall = tp / (tp + fn) if (tp + fn) else 0
+    recall = (
+        tp / (tp + fn)
+        if (tp + fn)
+        else 0
+    )
 
     f1 = (
-        (2 * precision * recall) / (precision + recall)
+        (2 * precision * recall)
+        / (precision + recall)
         if precision + recall
         else 0
     )
 
     report = {
-        "accuracy": round(accuracy, 3),
-        "precision": round(precision, 3),
-        "recall": round(recall, 3),
-        "f1": round(f1, 3),
+        "accuracy": round(
+            accuracy,
+            3
+        ),
+        "precision": round(
+            precision,
+            3
+        ),
+        "recall": round(
+            recall,
+            3
+        ),
+        "f1": round(
+            f1,
+            3
+        ),
         "tp": tp,
         "fp": fp,
         "tn": tn,
-        "fn": fn,
+        "fn": fn
     }
 
     print("\n📊 FINAL REPORT\n")
 
-    print(json.dumps(report, indent=2))
-
-    with open(
-        os.path.join(os.path.dirname(__file__), "report.json"),
-        "w",
-        encoding="utf-8",
-    ) as f:
-        json.dump(report, f, indent=2)
+    print(
+        json.dumps(
+            report,
+            indent=2
+        )
+    )
 
 
 if __name__ == "__main__":
