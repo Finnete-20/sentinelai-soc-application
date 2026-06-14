@@ -57,15 +57,101 @@ def execute_tool(tool_name, arguments):
 
     try:
 
-        result = fn(**arguments)
-
-        return result
+        return fn(**arguments)
 
     except Exception as e:
 
         return {
             "error": str(e)
         }
+
+
+def auto_correlate(
+    tool_name,
+    tool_result,
+    investigation_log
+):
+
+    try:
+
+        # ==================================
+        # Email investigations
+        # ==================================
+
+        if tool_name == "analyze_email":
+
+            verdict = tool_result.get(
+                "verdict",
+                ""
+            )
+
+            findings = " ".join(
+                tool_result.get(
+                    "findings",
+                    []
+                )
+            )
+
+            if verdict in [
+                "suspicious",
+                "malicious"
+            ]:
+
+                mitre_result = execute_tool(
+                    "mitre_mapper",
+                    {
+                        "evidence": (
+                            findings +
+                            " phishing"
+                        )
+                    }
+                )
+
+                investigation_log.append(
+                    {
+                        "tool": "mitre_mapper",
+                        "arguments": {
+                            "evidence": findings
+                        },
+                        "result": mitre_result
+                    }
+                )
+
+        # ==================================
+        # URL investigations
+        # ==================================
+
+        if tool_name == "url_reputation_check":
+
+            verdict = tool_result.get(
+                "verdict",
+                ""
+            )
+
+            if verdict in [
+                "suspicious",
+                "malicious"
+            ]:
+
+                mitre_result = execute_tool(
+                    "mitre_mapper",
+                    {
+                        "evidence": "phishing"
+                    }
+                )
+
+                investigation_log.append(
+                    {
+                        "tool": "mitre_mapper",
+                        "arguments": {
+                            "evidence": "phishing"
+                        },
+                        "result": mitre_result
+                    }
+                )
+
+    except Exception:
+        pass
 
 
 def run_agent_graph(user_input):
@@ -98,11 +184,110 @@ def run_agent_graph(user_input):
 
             try:
 
-                result = json.loads(content)
-
-                result["investigation_log"] = (
-                    investigation_log
+                result = json.loads(
+                    content
                 )
+
+                # ==========================
+                # Memory correlation
+                # ==========================
+
+                memory_result = execute_tool(
+                    "memory_lookup",
+                    {
+                        "query": user_input
+                    }
+                )
+
+                investigation_log.append(
+                    {
+                        "tool": "memory_lookup",
+                        "arguments": {
+                            "query": user_input
+                        },
+                        "result": memory_result
+                    }
+                )
+
+                # ==========================
+                # Store findings
+                # ==========================
+
+                if result.get(
+                    "verdict"
+                ) in [
+                    "suspicious",
+                    "malicious"
+                ]:
+
+                    finding = (
+                        f"{result.get('verdict')} "
+                        f"{result.get('incident_type', 'incident')} "
+                        f"detected: "
+                        f"{user_input[:300]}"
+                    )
+
+                    memory_store_result = (
+                        execute_tool(
+                            "memory_store",
+                            {
+                                "finding": finding
+                            }
+                        )
+                    )
+
+                    investigation_log.append(
+                        {
+                            "tool": "memory_store",
+                            "arguments": {
+                                "finding": finding
+                            },
+                            "result": (
+                                memory_store_result
+                            )
+                        }
+                    )
+
+                # ==========================
+                # Executive report
+                # ==========================
+
+                report_result = execute_tool(
+                    "generate_executive_report",
+                    {
+                        "investigation":
+                        result.get(
+                            "reason",
+                            ""
+                        )
+                    }
+                )
+
+                investigation_log.append(
+                    {
+                        "tool":
+                        "generate_executive_report",
+                        "arguments": {
+                            "investigation":
+                            result.get(
+                                "reason",
+                                ""
+                            )
+                        },
+                        "result": report_result
+                    }
+                )
+
+                result[
+                    "executive_summary"
+                ] = report_result.get(
+                    "executive_summary",
+                    ""
+                )
+
+                result[
+                    "investigation_log"
+                ] = investigation_log
 
                 return result
 
@@ -113,7 +298,8 @@ def run_agent_graph(user_input):
                     "confidence": 0.5,
                     "risk_score": 5,
                     "reason": content,
-                    "investigation_log": investigation_log
+                    "investigation_log":
+                    investigation_log
                 }
 
         messages.append(message)
@@ -141,10 +327,17 @@ def run_agent_graph(user_input):
                 }
             )
 
+            auto_correlate(
+                tool_name,
+                tool_result,
+                investigation_log
+            )
+
             messages.append(
                 {
                     "role": "tool",
-                    "tool_call_id": tool_call.id,
+                    "tool_call_id":
+                    tool_call.id,
                     "content": json.dumps(
                         tool_result
                     )
@@ -157,6 +350,8 @@ def run_agent_graph(user_input):
         "verdict": "suspicious",
         "confidence": 0.5,
         "risk_score": 5,
-        "reason": "Maximum tool calls exceeded.",
-        "investigation_log": investigation_log
+        "reason":
+        "Maximum tool calls exceeded.",
+        "investigation_log":
+        investigation_log
     }

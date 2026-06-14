@@ -31,11 +31,7 @@ SUSPICIOUS_KEYWORDS = [
     "gift card",
     "payment required",
     "limited time",
-    "act now",
-    "login",
-    "credential",
-    "security alert",
-    "account suspended"
+    "act now"
 ]
 
 
@@ -44,31 +40,24 @@ def analyze_email(email_text: str):
     text = email_text.lower()
 
     findings = []
-
     risk_score = 0
+
+    # =====================================================
+    # Extract email addresses
+    # =====================================================
 
     emails = re.findall(
         r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
         email_text
     )
 
-    urls = re.findall(
-        r"https?://[^\s]+",
-        email_text
-    )
-
-    ips = re.findall(
-        r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
-        email_text
-    )
-
-    domains = []
+    # =====================================================
+    # Free email provider check
+    # =====================================================
 
     for email in emails:
 
         domain = email.split("@")[1].lower()
-
-        domains.append(domain)
 
         if domain in FREE_EMAIL_DOMAINS:
 
@@ -78,28 +67,19 @@ def analyze_email(email_text: str):
 
             risk_score += 2
 
-    for url in urls:
-
-        try:
-
-            clean = (
-                url.replace("http://", "")
-                .replace("https://", "")
-                .split("/")[0]
-            )
-
-            domains.append(clean)
-
-        except Exception:
-            pass
+    # =====================================================
+    # Organization impersonation checks
+    # =====================================================
 
     for org, expected_domain in OFFICIAL_ORGANIZATIONS.items():
 
         if org in text:
 
-            for domain in domains:
+            for email in emails:
 
-                if expected_domain not in domain:
+                domain = email.split("@")[1].lower()
+
+                if domain != expected_domain:
 
                     findings.append(
                         f"Potential impersonation: {org} referenced but contact uses {domain}"
@@ -107,23 +87,40 @@ def analyze_email(email_text: str):
 
                     risk_score += 4
 
+    # =====================================================
+    # Suspicious language checks
+    # =====================================================
+
     for keyword in SUSPICIOUS_KEYWORDS:
 
         if keyword in text:
 
             findings.append(
-                f"Suspicious language detected: {keyword}"
+                f"Suspicious language detected: '{keyword}'"
             )
 
             risk_score += 1
 
-    if len(urls) >= 3:
+    # =====================================================
+    # URL extraction
+    # =====================================================
+
+    urls = re.findall(
+        r"https?://[^\s]+",
+        email_text
+    )
+
+    if len(urls) > 3:
 
         findings.append(
             "Email contains multiple URLs"
         )
 
         risk_score += 2
+
+    # =====================================================
+    # Verdict
+    # =====================================================
 
     if risk_score >= 8:
 
@@ -142,12 +139,5 @@ def analyze_email(email_text: str):
         "risk_score": risk_score,
         "email_addresses": emails,
         "urls_found": urls,
-        "domains_found": list(set(domains)),
-        "ips_found": ips,
-        "ioc_count": (
-            len(emails)
-            + len(urls)
-            + len(ips)
-        ),
         "findings": findings
     }

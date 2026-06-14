@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.core.agent_runtime import run_agent_graph
@@ -12,21 +13,54 @@ app = FastAPI(
 )
 
 
+# =========================================================
+# CORS
+# =========================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# =========================================================
+# ROUTERS
+# =========================================================
+
 app.include_router(report_router)
 
+
+# =========================================================
+# REQUEST MODELS
+# =========================================================
 
 class InvestigationRequest(BaseModel):
     input: str
 
+
+# =========================================================
+# HEALTH CHECK
+# =========================================================
 
 @app.get("/")
 def health():
 
     return {
         "status": "online",
-        "service": "SentinelAI SOC"
+        "service": "SentinelAI SOC",
+        "version": "2.0"
     }
 
+
+# =========================================================
+# INVESTIGATION ENDPOINT
+# =========================================================
 
 @app.post("/investigate")
 def investigate(request: InvestigationRequest):
