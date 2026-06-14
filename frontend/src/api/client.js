@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = "https://sentinelai-backend-w5bu.onrender.com";
 
 export async function investigate(input) {
     try {
@@ -14,6 +14,12 @@ export async function investigate(input) {
                 })
             }
         );
+
+        if (!response.ok) {
+            throw new Error(
+                `Server returned ${response.status}`
+            );
+        }
 
         const data = await response.json();
 
