@@ -29,9 +29,11 @@ def analyze_email(email_text: str):
     for email in emails:
 
         try:
+
             domains.add(
                 email.split("@")[1].lower()
             )
+
         except Exception:
             pass
 
@@ -57,15 +59,5 @@ def analyze_email(email_text: str):
         "domains_found": list(domains),
         "ips_found": ips,
         "cves_found": cves,
-        "recipient_count": email_text.lower().count("to "),
-        "contains_google_forms": (
-            "forms.gle" in email_text.lower()
-        ),
-        "contains_bitly": (
-            "bit.ly" in email_text.lower()
-        ),
-        "contains_tinyurl": (
-            "tinyurl" in email_text.lower()
-        ),
-        "raw_text_length": len(email_text)
+        "raw_email": email_text
     }

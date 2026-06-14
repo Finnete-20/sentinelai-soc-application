@@ -1,11 +1,10 @@
 import json
-import re
 
 from app.core.llm_client import run_llm
 from app.core.tool_registry import TOOLS
 
 
-MAX_TOOL_CALLS = 10
+MAX_TOOL_CALLS = 15
 
 
 def build_openai_tools():
@@ -64,97 +63,9 @@ def execute_tool(tool_name, arguments):
         }
 
 
-def extract_indicators(text):
-
-    emails = re.findall(
-        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
-        text
-    )
-
-    urls = re.findall(
-        r"https?://[^\s]+",
-        text
-    )
-
-    cves = re.findall(
-        r"CVE-\d{4}-\d+",
-        text,
-        re.IGNORECASE
-    )
-
-    return {
-        "emails": emails,
-        "urls": urls,
-        "cves": cves
-    }
-
-
 def run_agent_graph(user_input):
 
     investigation_log = []
-
-    indicators = extract_indicators(
-        user_input
-    )
-
-    for email in indicators["emails"]:
-
-        memory = execute_tool(
-            "memory_lookup",
-            {
-                "query": email
-            }
-        )
-
-        investigation_log.append(
-            {
-                "tool": "memory_lookup",
-                "arguments": {
-                    "query": email
-                },
-                "result": memory
-            }
-        )
-
-    for url in indicators["urls"]:
-
-        memory = execute_tool(
-            "memory_lookup",
-            {
-                "query": url
-            }
-        )
-
-        investigation_log.append(
-            {
-                "tool": "memory_lookup",
-                "arguments": {
-                    "query": url
-                },
-                "result": memory
-            }
-        )
-
-    for cve in indicators["cves"]:
-
-        cve_result = execute_tool(
-            "cve_lookup",
-            {
-                "cve": cve
-            }
-        )
-
-        investigation_log.append(
-            {
-                "tool": "cve_lookup",
-                "arguments": {
-                    "cve": cve
-                },
-                "result": cve_result
-            }
-        )
-
-    tools = build_openai_tools()
 
     messages = [
         {
@@ -162,6 +73,8 @@ def run_agent_graph(user_input):
             "content": user_input
         }
     ]
+
+    tools = build_openai_tools()
 
     tool_calls_count = 0
 
@@ -209,49 +122,15 @@ def run_agent_graph(user_input):
 
             except Exception:
 
-                result = {
+                return {
                     "verdict": "error",
                     "confidence": 0,
                     "incident_type": "parse_error",
                     "reason": str(
                         message.content
                     ),
-                    "mitre_findings": [],
-                    "cve_findings": []
+                    "investigation_log": investigation_log
                 }
-
-            report = execute_tool(
-                "generate_executive_report",
-                {
-                    "investigation":
-                    result.get(
-                        "reason",
-                        ""
-                    )
-                }
-            )
-
-            investigation_log.append(
-                {
-                    "tool":
-                    "generate_executive_report",
-                    "arguments": {
-                        "investigation":
-                        result.get(
-                            "reason",
-                            ""
-                        )
-                    },
-                    "result": report
-                }
-            )
-
-            result[
-                "executive_summary"
-            ] = report.get(
-                "executive_summary",
-                ""
-            )
 
             result[
                 "investigation_log"
@@ -286,9 +165,15 @@ def run_agent_graph(user_input):
                 tool_call.function.name
             )
 
-            arguments = json.loads(
-                tool_call.function.arguments
-            )
+            try:
+
+                arguments = json.loads(
+                    tool_call.function.arguments
+                )
+
+            except Exception:
+
+                arguments = {}
 
             tool_result = execute_tool(
                 tool_name,
@@ -321,6 +206,8 @@ def run_agent_graph(user_input):
         "verdict": "error",
         "confidence": 0,
         "incident_type": "system_error",
-        "reason": "Maximum tool calls exceeded.",
-        "investigation_log": investigation_log
+        "reason":
+        "Maximum tool calls exceeded.",
+        "investigation_log":
+        investigation_log
     }
