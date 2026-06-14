@@ -214,6 +214,7 @@ A structured evaluation framework was added.
 Dataset size:
 
 * 55 cybersecurity investigation samples
+  Location: evaluation/eval_dataset.json
 
 Metrics collected:
 
@@ -236,6 +237,10 @@ Interpretation:
 * Recall remains an area for future improvement
 
 The evaluation framework provides measurable evidence of system performance.
+
+The evaluation can be reproduced by running:
+
+python evaluation/eval.py
 
 ---
 

@@ -297,24 +297,63 @@ Output:
 
 # Evaluation
 
-Evaluation was performed using a dataset of 55 investigation samples.
+Evaluation
+
+Evaluation was performed using a dataset of 55 cybersecurity investigation samples located in:
+
+evaluation/eval_dataset.json
+
+The evaluation can be reproduced by running:
+
+python evaluation/eval.py
 
 Metrics:
 
-```json
 {
   "accuracy": 0.764,
   "precision": 0.929,
   "recall": 0.520,
   "f1": 0.667
 }
-```
+
+Results:
+
+- Accuracy: 76.4%
+- Precision: 92.9%
+- Recall: 52.0%
+- F1 Score: 66.7%
 
 Interpretation:
 
-- High precision means alerts flagged as malicious are usually correct.
-- Low false-positive rate reduces analyst fatigue.
-- Recall can be improved in future versions.
+- High precision indicates that incidents classified as malicious are usually correct.
+- Low false-positive rates help reduce analyst fatigue.
+- Recall remains an area for future improvement.
+
+How to Test SentinelAI
+
+1. Open the deployed application.
+2. Submit a phishing email, suspicious URL, or CVE identifier.
+3. Observe the investigation timeline and tool calls.
+4. Verify that the model autonomously selects MCP tools and produces a final investigation report.
+
+Example test input:
+
+GVSU Enrollment Form!
+
+Michael Brown <williamsmithn800@gmail.com>
+
+https://forms.gle/r1yZEXiJ1ms6Rsw58
+
+Expected behavior:
+
+- Model calls analyze_email
+- Model calls url_reputation_check
+- Model may call memory_lookup
+- Model may call mitre_mapper
+- Model generates an executive report
+- Model produces a final verdict based on collected evidence
+
+The complete evaluation framework, dataset, and generated results are included in the repository under the evaluation folder.
 
 ---
 
