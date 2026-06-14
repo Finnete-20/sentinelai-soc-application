@@ -85,5 +85,8 @@ def run_llm(
         model=model,
         messages=full_messages,
         tools=tools,
-        temperature=0.2
+        temperature=0.2,
+        response_format={
+            "type": "json_object"
+        }
     )

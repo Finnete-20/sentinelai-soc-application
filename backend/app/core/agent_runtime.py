@@ -180,16 +180,16 @@ def run_agent_graph(
     investigation_log = []
 
     # =====================================
-    # CVE Auto Investigation
+    # CVE AUTO LOOKUP
     # =====================================
+
+    cve_findings = []
 
     cves = re.findall(
         r"CVE-\d{4}-\d+",
         user_input,
         re.IGNORECASE
     )
-
-    cve_findings = []
 
     for cve in cves:
 
@@ -215,7 +215,7 @@ def run_agent_graph(
         )
 
     # =====================================
-    # Memory Correlation
+    # MEMORY CORRELATION
     # =====================================
 
     indicator = (
@@ -242,7 +242,7 @@ def run_agent_graph(
     )
 
     # =====================================
-    # LLM Investigation
+    # LLM EXECUTION
     # =====================================
 
     tools = build_openai_tools()
@@ -264,17 +264,26 @@ def run_agent_graph(
         )
 
         message = (
-            response
-            .choices[0]
-            .message
+            response.choices[0].message
         )
+
+        # =====================================
+        # FINAL RESPONSE
+        # =====================================
 
         if not message.tool_calls:
 
             try:
 
-                result = json.loads(
+                content = (
                     message.content
+                    .replace("```json", "")
+                    .replace("```", "")
+                    .strip()
+                )
+
+                result = json.loads(
+                    content
                 )
 
             except Exception:
@@ -287,13 +296,13 @@ def run_agent_graph(
                     "risk_score":
                     5,
                     "reason":
-                    message.content,
+                    f"Failed to parse model JSON: {message.content}",
                     "investigation_log":
                     investigation_log
                 }
 
             # =====================================
-            # Collect MITRE Findings
+            # MITRE FINDINGS
             # =====================================
 
             mitre_findings = []
@@ -321,7 +330,7 @@ def run_agent_graph(
             ] = cve_findings
 
             # =====================================
-            # Store Findings
+            # MEMORY STORE
             # =====================================
 
             if result.get(
@@ -362,7 +371,7 @@ def run_agent_graph(
                 )
 
             # =====================================
-            # Generate Report ONCE
+            # REPORT GENERATION
             # =====================================
 
             report = execute_tool(
@@ -409,6 +418,10 @@ def run_agent_graph(
             message
         )
 
+        # =====================================
+        # TOOL CALLS
+        # =====================================
+
         for tool_call in message.tool_calls:
 
             tool_name = (
@@ -418,6 +431,14 @@ def run_agent_graph(
             arguments = json.loads(
                 tool_call.function.arguments
             )
+
+            # Prevent duplicate report generation
+
+            if (
+                tool_name
+                == "generate_executive_report"
+            ):
+                continue
 
             tool_result = execute_tool(
                 tool_name,
