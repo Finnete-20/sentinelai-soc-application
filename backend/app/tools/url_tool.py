@@ -1,153 +1,129 @@
-import re
+import os
+import base64
+import requests
+from dotenv import load_dotenv
+
+try:
+    load_dotenv()
+except Exception:
+    pass
+
+VT_API_KEY = os.getenv("VT_API_KEY")
 
 
-FREE_EMAIL_DOMAINS = {
-    "gmail.com",
-    "yahoo.com",
-    "hotmail.com",
-    "outlook.com",
-    "icloud.com",
-    "aol.com"
-}
+def url_reputation_check(url: str):
 
+    result = {
+        "url": url,
+        "risk_score": 0,
+        "verdict": "safe",
+        "sources": []
+    }
 
-OFFICIAL_ORGANIZATIONS = {
-    "grand valley state university": "gvsu.edu",
-    "microsoft": "microsoft.com",
-    "google": "google.com",
-    "amazon": "amazon.com",
-    "openai": "openai.com"
-}
+    url_lower = url.lower()
 
+    phishing_keywords = [
+        "login",
+        "verify",
+        "secure",
+        "update",
+        "bank",
+        "account",
+        "signin",
+        "password",
+        "confirm",
+        "wallet",
+        "invoice",
+        "otp",
+        "recovery",
+        "reset",
+        "security",
+        "alert",
+        "urgent",
+        "suspended"
+    ]
 
-SUSPICIOUS_KEYWORDS = [
-    "urgent",
-    "immediately",
-    "verify your account",
-    "click here",
-    "confirm your identity",
-    "password reset",
-    "wire transfer",
-    "gift card",
-    "payment required",
-    "limited time",
-    "act now",
-    "login",
-    "credential",
-    "security alert",
-    "account suspended"
-]
+    if url_lower.startswith("http://"):
+        result["risk_score"] += 2
 
+    keyword_hits = 0
 
-def analyze_email(email_text: str):
+    for keyword in phishing_keywords:
 
-    text = email_text.lower()
+        if keyword in url_lower:
+            keyword_hits += 1
 
-    findings = []
+    result["risk_score"] += keyword_hits
 
-    risk_score = 0
+    if keyword_hits >= 3:
+        result["risk_score"] += 2
 
-    emails = re.findall(
-        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
-        email_text
-    )
-
-    urls = re.findall(
-        r"https?://[^\s]+",
-        email_text
-    )
-
-    ips = re.findall(
-        r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
-        email_text
-    )
-
-    domains = []
-
-    for email in emails:
-
-        domain = email.split("@")[1].lower()
-
-        domains.append(domain)
-
-        if domain in FREE_EMAIL_DOMAINS:
-
-            findings.append(
-                f"Uses free email provider: {email}"
-            )
-
-            risk_score += 2
-
-    for url in urls:
+    if VT_API_KEY:
 
         try:
 
-            clean = (
-                url.replace("http://", "")
-                .replace("https://", "")
-                .split("/")[0]
+            url_id = (
+                base64.urlsafe_b64encode(
+                    url.encode()
+                )
+                .decode()
+                .strip("=")
             )
 
-            domains.append(clean)
-
-        except Exception:
-            pass
-
-    for org, expected_domain in OFFICIAL_ORGANIZATIONS.items():
-
-        if org in text:
-
-            for domain in domains:
-
-                if expected_domain not in domain:
-
-                    findings.append(
-                        f"Potential impersonation: {org} referenced but contact uses {domain}"
-                    )
-
-                    risk_score += 4
-
-    for keyword in SUSPICIOUS_KEYWORDS:
-
-        if keyword in text:
-
-            findings.append(
-                f"Suspicious language detected: {keyword}"
+            response = requests.get(
+                f"https://www.virustotal.com/api/v3/urls/{url_id}",
+                headers={
+                    "x-apikey": VT_API_KEY
+                },
+                timeout=10
             )
 
-            risk_score += 1
+            if response.status_code == 200:
 
-    if len(urls) >= 3:
+                data = response.json()
 
-        findings.append(
-            "Email contains multiple URLs"
-        )
+                stats = (
+                    data.get("data", {})
+                    .get("attributes", {})
+                    .get("last_analysis_stats", {})
+                )
 
-        risk_score += 2
+                malicious = stats.get(
+                    "malicious",
+                    0
+                )
 
-    if risk_score >= 8:
+                suspicious = stats.get(
+                    "suspicious",
+                    0
+                )
 
-        verdict = "malicious"
+                if malicious > 0:
+                    result["risk_score"] += 5
 
-    elif risk_score >= 4:
+                elif suspicious > 0:
+                    result["risk_score"] += 3
 
-        verdict = "suspicious"
+                result["sources"].append(
+                    "virustotal"
+                )
+
+        except Exception as e:
+
+            result["sources"].append(
+                f"vt_error:{str(e)}"
+            )
+
+    if result["risk_score"] >= 4:
+
+        result["verdict"] = "malicious"
+
+    elif result["risk_score"] >= 2:
+
+        result["verdict"] = "suspicious"
 
     else:
 
-        verdict = "safe"
+        result["verdict"] = "safe"
 
-    return {
-        "verdict": verdict,
-        "risk_score": risk_score,
-        "email_addresses": emails,
-        "urls_found": urls,
-        "domains_found": list(set(domains)),
-        "ips_found": ips,
-        "ioc_count": (
-            len(emails)
-            + len(urls)
-            + len(ips)
-        ),
-        "findings": findings
-    }
+    return result
