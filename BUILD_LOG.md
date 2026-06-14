@@ -1,10 +1,10 @@
 # SentinelAI Build Log
 
-## Project Goal
+# Project Goal
 
 SentinelAI is an AI-powered Security Operations Center (SOC) analyst that autonomously investigates cybersecurity incidents using LLM reasoning, MCP tools, VirusTotal threat intelligence, CVE intelligence, MITRE ATT&CK knowledge, memory correlation, and executive reporting.
 
-The objective was to build a production-ready security investigation platform that behaves like a Tier 2/Tier 3 SOC analyst rather than a simple chatbot.
+The objective was to build a production-ready security investigation platform that behaves like a Tier 2 / Tier 3 SOC analyst.
 
 ---
 
@@ -25,9 +25,63 @@ Although functional, this architecture did not satisfy the agentic requirements 
 Examples included:
 
 * Python deciding when something was phishing
-* Python assigning malicious/suspicious verdicts
+* Python assigning malicious or suspicious verdicts
 * Python calculating investigation outcomes
 * Rule-based reasoning replacing model reasoning
+
+The project worked technically, but it did not satisfy the course definition of an agentic AI system.
+
+This became the primary focus of the final iteration.
+
+---
+
+# Prompt Engineering Iterations
+
+## Prompt Version 1
+
+The original system prompt focused on identifying phishing emails and producing investigation results.
+
+Issues discovered:
+
+* Tool usage was inconsistent
+* The model sometimes stopped investigating too early
+* Executive reports lacked consistency
+* Investigations relied too heavily on Python logic
+
+---
+
+## Prompt Version 2
+
+The system prompt was redesigned to emphasize:
+
+* Autonomous investigation
+* Evidence-based reasoning
+* MCP tool usage
+* Threat intelligence gathering
+* Memory correlation
+* MITRE ATT&CK analysis
+* Executive reporting
+
+The prompt explicitly instructed the model to:
+
+* Decide which tools to use
+* Decide when tools should be used
+* Correlate evidence
+* Produce structured investigation results
+
+---
+
+## Result
+
+The revised prompt improved:
+
+* Tool utilization
+* Investigation quality
+* Evidence correlation
+* Executive reporting consistency
+* Agentic behavior
+
+The final architecture places the model in control of investigation decisions.
 
 ---
 
@@ -39,6 +93,7 @@ The investigation runtime was redesigned so that:
 * The LLM decides which MCP tools to call
 * The LLM receives tool results
 * The LLM decides what to investigate next
+* The LLM decides when to stop
 * The LLM produces the final verdict
 
 The Python layer became an execution engine rather than a decision engine.
@@ -49,7 +104,7 @@ This significantly increased agentic behavior.
 
 # Iteration 2: MCP Tool Architecture
 
-Security capabilities were exposed as MCP tools:
+Security capabilities were exposed as MCP tools.
 
 ### analyze_email
 
@@ -79,7 +134,7 @@ Provides MITRE ATT&CK reference knowledge.
 
 Produces executive-level summaries.
 
-The LLM decides when and how to use each tool.
+The model decides when and how to use each tool.
 
 ---
 
@@ -95,12 +150,39 @@ Benefits:
 * Up-to-date CVSS scores
 * Real vulnerability descriptions
 * Better grounding
+* Current vulnerability information
 
 VirusTotal integration was also retained to provide live URL reputation intelligence.
 
+The combination of NVD and VirusTotal gives the model access to information unavailable through pretraining alone.
+
 ---
 
-# Iteration 4: Deployment Improvements
+# Iteration 4: Agentic Refactoring
+
+A major redesign removed rule-based investigation logic.
+
+Removed components included:
+
+* Hardcoded phishing scoring
+* Hardcoded malicious verdicts
+* Hardcoded suspicious verdicts
+* Hardcoded risk calculations
+* Hardcoded investigation routing
+
+Instead:
+
+* The model decides which tools to call
+* The model interprets tool results
+* The model determines risk
+* The model assigns verdicts
+* The model produces reports
+
+This transformed the system from a rule-based pipeline into an agentic investigation platform.
+
+---
+
+# Iteration 5: Deployment Improvements
 
 Frontend:
 
@@ -119,18 +201,19 @@ Several deployment issues were resolved:
 * Environment variable configuration
 * API connectivity
 * Production routing
+* Frontend-backend communication
 
 The final system is publicly accessible.
 
 ---
 
-# Iteration 5: Evaluation Framework
+# Iteration 6: Evaluation Framework
 
 A structured evaluation framework was added.
 
 Dataset size:
 
-* 55 security investigation samples
+* 55 cybersecurity investigation samples
 
 Metrics collected:
 
@@ -146,7 +229,13 @@ Final results:
 * Recall: 52.0%
 * F1 Score: 66.7%
 
-The system favors low false positives, which is desirable in SOC workflows.
+Interpretation:
+
+* High precision indicates low false-positive rates
+* Low false positives reduce analyst fatigue
+* Recall remains an area for future improvement
+
+The evaluation framework provides measurable evidence of system performance.
 
 ---
 
@@ -184,6 +273,24 @@ Final Investigation Result
 
 ---
 
+# Agentic Behavior
+
+The final system satisfies the course definition of agentic AI.
+
+The model autonomously:
+
+* Decides whether a tool is needed
+* Selects which tool to call
+* Interprets tool outputs
+* Decides whether additional investigation is required
+* Produces the final verdict
+
+The Python layer executes tool requests but does not make investigation decisions.
+
+If the model were removed, the system would not behave the same way.
+
+---
+
 # Known Limitations
 
 Current limitations include:
@@ -203,7 +310,7 @@ Given additional development time:
 * Add Splunk connectors
 * Add Microsoft Defender integration
 * Add CrowdStrike integration
-
+* Add live MITRE ATT&CK retrieval
 
 ---
 
@@ -211,4 +318,17 @@ Given additional development time:
 
 SentinelAI evolved from a partially rule-based security application into a fully agentic AI SOC analyst where the model drives investigation decisions, tool usage, evidence correlation, and reporting.
 
-The final system demonstrates prompt engineering, grounding, MCP tool execution, autonomous reasoning, evaluation, deployment, and iterative improvement.
+The final system demonstrates:
+
+* Prompt engineering
+* System prompting
+* Grounding
+* MCP tool definition
+* MCP tool execution
+* Agentic reasoning
+* Threat intelligence integration
+* Evaluation
+* Deployment
+* Iterative improvement
+
+The resulting platform provides autonomous cybersecurity investigations using real-world threat intelligence and LLM-driven decision making.
