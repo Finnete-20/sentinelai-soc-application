@@ -406,7 +406,7 @@ frontend/
 
 # Build Log
 
-A detailed development history, iterations, evaluation process, architectural changes, and responses to instructor feedback can be found in:
+A detailed development history, iterations, evaluation process and architectural changes can be found in:
 
 ```text
 BUILD_LOG.md
