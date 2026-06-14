@@ -82,7 +82,7 @@ def auto_correlate(
                 )
             )
 
-            mitre_result = execute_tool(
+            mitre = execute_tool(
                 "mitre_mapper",
                 {
                     "evidence":
@@ -97,61 +97,25 @@ def auto_correlate(
                     "arguments": {
                         "evidence": findings
                     },
-                    "result": mitre_result
+                    "result": mitre
                 }
             )
-
-        elif tool_name == "url_reputation_check":
-
-            if tool_result.get(
-                "verdict"
-            ) in [
-                "suspicious",
-                "malicious"
-            ]:
-
-                mitre_result = execute_tool(
-                    "mitre_mapper",
-                    {
-                        "evidence":
-                        "phishing malicious url"
-                    }
-                )
-
-                investigation_log.append(
-                    {
-                        "tool": "mitre_mapper",
-                        "arguments": {
-                            "evidence":
-                            "phishing malicious url"
-                        },
-                        "result": mitre_result
-                    }
-                )
 
     except Exception:
         pass
 
 
-def extract_indicator_for_memory(
-    text
-):
+def extract_indicators(text):
 
     emails = re.findall(
         r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
         text
     )
 
-    if emails:
-        return emails[0]
-
     urls = re.findall(
         r"https?://[^\s]+",
         text
     )
-
-    if urls:
-        return urls[0]
 
     cves = re.findall(
         r"CVE-\d{4}-\d+",
@@ -159,39 +123,68 @@ def extract_indicator_for_memory(
         re.IGNORECASE
     )
 
-    if cves:
-        return cves[0]
-
-    ips = re.findall(
-        r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
-        text
-    )
-
-    if ips:
-        return ips[0]
-
-    return text[:50]
+    return {
+        "emails": emails,
+        "urls": urls,
+        "cves": cves
+    }
 
 
-def run_agent_graph(
-    user_input
-):
+def run_agent_graph(user_input):
 
     investigation_log = []
 
-    # =====================================
-    # CVE AUTO LOOKUP
-    # =====================================
-
-    cve_findings = []
-
-    cves = re.findall(
-        r"CVE-\d{4}-\d+",
-        user_input,
-        re.IGNORECASE
+    indicators = extract_indicators(
+        user_input
     )
 
-    for cve in cves:
+    # ==================================
+    # Memory correlation
+    # ==================================
+
+    for email in indicators["emails"]:
+
+        memory = execute_tool(
+            "memory_lookup",
+            {
+                "query": email
+            }
+        )
+
+        investigation_log.append(
+            {
+                "tool": "memory_lookup",
+                "arguments": {
+                    "query": email
+                },
+                "result": memory
+            }
+        )
+
+    for url in indicators["urls"]:
+
+        memory = execute_tool(
+            "memory_lookup",
+            {
+                "query": url
+            }
+        )
+
+        investigation_log.append(
+            {
+                "tool": "memory_lookup",
+                "arguments": {
+                    "query": url
+                },
+                "result": memory
+            }
+        )
+
+    # ==================================
+    # CVE correlation
+    # ==================================
+
+    for cve in indicators["cves"]:
 
         cve_result = execute_tool(
             "cve_lookup",
@@ -210,41 +203,6 @@ def run_agent_graph(
             }
         )
 
-        cve_findings.append(
-            cve_result
-        )
-
-    # =====================================
-    # MEMORY CORRELATION
-    # =====================================
-
-    indicator = (
-        extract_indicator_for_memory(
-            user_input
-        )
-    )
-
-    memory_result = execute_tool(
-        "memory_lookup",
-        {
-            "query": indicator
-        }
-    )
-
-    investigation_log.append(
-        {
-            "tool": "memory_lookup",
-            "arguments": {
-                "query": indicator
-            },
-            "result": memory_result
-        }
-    )
-
-    # =====================================
-    # LLM EXECUTION
-    # =====================================
-
     tools = build_openai_tools()
 
     messages = [
@@ -258,29 +216,44 @@ def run_agent_graph(
 
     while tool_calls_count < MAX_TOOL_CALLS:
 
-        response = run_llm(
-            messages=messages,
-            tools=tools
-        )
+        try:
 
-        message = (
-            response.choices[0].message
-        )
+            response = run_llm(
+                messages=messages,
+                tools=tools
+            )
 
-        # =====================================
-        # FINAL RESPONSE
-        # =====================================
+        except Exception as e:
+
+            return {
+                "verdict": "error",
+                "confidence": 0,
+                "risk_score": 0,
+                "incident_type": "system_error",
+                "reason": str(e),
+                "investigation_log": investigation_log
+            }
+
+        message = response.choices[0].message
+
+        # ==================================
+        # Final response
+        # ==================================
 
         if not message.tool_calls:
 
             try:
 
-                content = (
-                    message.content
-                    .replace("```json", "")
-                    .replace("```", "")
-                    .strip()
-                )
+                content = message.content.strip()
+
+                if content.startswith("```"):
+
+                    content = (
+                        content
+                        .replace("```json", "")
+                        .replace("```", "")
+                        .strip()
+                    )
 
                 result = json.loads(
                     content
@@ -288,91 +261,17 @@ def run_agent_graph(
 
             except Exception:
 
-                return {
-                    "verdict":
-                    "suspicious",
-                    "confidence":
-                    0.5,
-                    "risk_score":
-                    5,
-                    "reason":
-                    f"Failed to parse model JSON: {message.content}",
-                    "investigation_log":
-                    investigation_log
+                result = {
+                    "verdict": "suspicious",
+                    "confidence": 0.5,
+                    "risk_score": 5,
+                    "incident_type": "unknown",
+                    "reason": str(
+                        message.content
+                    ),
+                    "mitre_findings": [],
+                    "cve_findings": []
                 }
-
-            # =====================================
-            # MITRE FINDINGS
-            # =====================================
-
-            mitre_findings = []
-
-            for item in investigation_log:
-
-                if (
-                    item["tool"]
-                    == "mitre_mapper"
-                ):
-
-                    mitre_findings.extend(
-                        item["result"].get(
-                            "matches",
-                            []
-                        )
-                    )
-
-            result[
-                "mitre_findings"
-            ] = mitre_findings
-
-            result[
-                "cve_findings"
-            ] = cve_findings
-
-            # =====================================
-            # MEMORY STORE
-            # =====================================
-
-            if result.get(
-                "verdict"
-            ) in [
-                "suspicious",
-                "malicious"
-            ]:
-
-                finding = (
-                    f"{result.get('verdict')} "
-                    f"{result.get('incident_type', 'incident')} "
-                    f"detected: "
-                    f"{indicator}"
-                )
-
-                memory_store_result = (
-                    execute_tool(
-                        "memory_store",
-                        {
-                            "finding":
-                            finding
-                        }
-                    )
-                )
-
-                investigation_log.append(
-                    {
-                        "tool":
-                        "memory_store",
-                        "arguments": {
-                            "finding":
-                            finding
-                        },
-                        "result":
-                        memory_store_result
-                    }
-                )
-
-            # =====================================
-            # REPORT GENERATION
-            # =====================================
 
             report = execute_tool(
                 "generate_executive_report",
@@ -396,8 +295,7 @@ def run_agent_graph(
                             ""
                         )
                     },
-                    "result":
-                    report
+                    "result": report
                 }
             )
 
@@ -414,13 +312,32 @@ def run_agent_graph(
 
             return result
 
-        messages.append(
-            message
-        )
+        # ==================================
+        # CRITICAL FIX
+        # ==================================
 
-        # =====================================
-        # TOOL CALLS
-        # =====================================
+        messages.append(
+            {
+                "role": "assistant",
+                "content": (
+                    message.content
+                    or ""
+                ),
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name":
+                            tc.function.name,
+                            "arguments":
+                            tc.function.arguments
+                        }
+                    }
+                    for tc in message.tool_calls
+                ]
+            }
+        )
 
         for tool_call in message.tool_calls:
 
@@ -432,14 +349,6 @@ def run_agent_graph(
                 tool_call.function.arguments
             )
 
-            # Prevent duplicate report generation
-
-            if (
-                tool_name
-                == "generate_executive_report"
-            ):
-                continue
-
             tool_result = execute_tool(
                 tool_name,
                 arguments
@@ -447,12 +356,9 @@ def run_agent_graph(
 
             investigation_log.append(
                 {
-                    "tool":
-                    tool_name,
-                    "arguments":
-                    arguments,
-                    "result":
-                    tool_result
+                    "tool": tool_name,
+                    "arguments": arguments,
+                    "result": tool_result
                 }
             )
 
@@ -480,6 +386,8 @@ def run_agent_graph(
         "verdict": "suspicious",
         "confidence": 0.5,
         "risk_score": 5,
+        "incident_type":
+        "system_error",
         "reason":
         "Maximum tool calls exceeded.",
         "investigation_log":
