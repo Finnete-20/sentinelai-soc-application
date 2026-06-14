@@ -139,7 +139,7 @@ def run_agent_graph(user_input):
     )
 
     # ==================================
-    # Memory correlation
+    # Memory Correlation
     # ==================================
 
     for email in indicators["emails"]:
@@ -181,7 +181,7 @@ def run_agent_graph(user_input):
         )
 
     # ==================================
-    # CVE correlation
+    # CVE Correlation
     # ==================================
 
     for cve in indicators["cves"]:
@@ -236,15 +236,13 @@ def run_agent_graph(user_input):
 
         message = response.choices[0].message
 
-        # ==================================
-        # Final response
-        # ==================================
-
         if not message.tool_calls:
 
             try:
 
-                content = message.content.strip()
+                content = (
+                    message.content or ""
+                ).strip()
 
                 if content.startswith("```"):
 
@@ -272,6 +270,75 @@ def run_agent_graph(user_input):
                     "mitre_findings": [],
                     "cve_findings": []
                 }
+
+            # ==========================
+            # MITRE COLLECTION
+            # ==========================
+
+            mitre_findings = []
+
+            for item in investigation_log:
+
+                if item["tool"] == "mitre_mapper":
+
+                    matches = item[
+                        "result"
+                    ].get(
+                        "matches",
+                        []
+                    )
+
+                    mitre_findings.extend(
+                        matches
+                    )
+
+            result[
+                "mitre_findings"
+            ] = mitre_findings
+
+            # ==========================
+            # MEMORY RISK BOOST
+            # ==========================
+
+            memory_hits = 0
+
+            for item in investigation_log:
+
+                if item["tool"] == "memory_lookup":
+
+                    memory_hits += (
+                        item["result"].get(
+                            "matches_found",
+                            0
+                        )
+                    )
+
+            result["risk_score"] = (
+                result.get(
+                    "risk_score",
+                    0
+                )
+                + min(
+                    memory_hits,
+                    3
+                )
+            )
+
+            if result["risk_score"] >= 8:
+
+                result["verdict"] = (
+                    "malicious"
+                )
+
+            elif result["risk_score"] >= 4:
+
+                result["verdict"] = (
+                    "suspicious"
+                )
+
+            # ==========================
+            # SINGLE REPORT GENERATION
+            # ==========================
 
             report = execute_tool(
                 "generate_executive_report",
@@ -312,17 +379,11 @@ def run_agent_graph(user_input):
 
             return result
 
-        # ==================================
-        # CRITICAL FIX
-        # ==================================
-
         messages.append(
             {
                 "role": "assistant",
-                "content": (
-                    message.content
-                    or ""
-                ),
+                "content":
+                message.content or "",
                 "tool_calls": [
                     {
                         "id": tc.id,
