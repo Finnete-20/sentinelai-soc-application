@@ -14,10 +14,6 @@ def build_openai_tools():
 
     for name, details in TOOLS.items():
 
-        # Runtime handles reports automatically
-        if name == "generate_executive_report":
-            continue
-
         properties = {}
 
         required = []
@@ -30,18 +26,20 @@ def build_openai_tools():
 
             required.append(field)
 
-        tools.append({
-            "type": "function",
-            "function": {
-                "name": name,
-                "description": details["description"],
-                "parameters": {
-                    "type": "object",
-                    "properties": properties,
-                    "required": required
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": details["description"],
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required
+                    }
                 }
             }
-        })
+        )
 
     return tools
 
@@ -93,13 +91,15 @@ def auto_correlate(
                 }
             )
 
-            investigation_log.append({
-                "tool": "mitre_mapper",
-                "arguments": {
-                    "evidence": findings
-                },
-                "result": mitre_result
-            })
+            investigation_log.append(
+                {
+                    "tool": "mitre_mapper",
+                    "arguments": {
+                        "evidence": findings
+                    },
+                    "result": mitre_result
+                }
+            )
 
         elif tool_name == "url_reputation_check":
 
@@ -114,33 +114,74 @@ def auto_correlate(
                     "mitre_mapper",
                     {
                         "evidence":
-                        "phishing"
+                        "phishing malicious url"
                     }
                 )
 
-                investigation_log.append({
-                    "tool": "mitre_mapper",
-                    "arguments": {
-                        "evidence":
-                        "phishing"
-                    },
-                    "result":
-                    mitre_result
-                })
+                investigation_log.append(
+                    {
+                        "tool": "mitre_mapper",
+                        "arguments": {
+                            "evidence":
+                            "phishing malicious url"
+                        },
+                        "result": mitre_result
+                    }
+                )
 
     except Exception:
         pass
 
 
-def run_agent_graph(user_input):
+def extract_indicator_for_memory(
+    text
+):
+
+    emails = re.findall(
+        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+        text
+    )
+
+    if emails:
+        return emails[0]
+
+    urls = re.findall(
+        r"https?://[^\s]+",
+        text
+    )
+
+    if urls:
+        return urls[0]
+
+    cves = re.findall(
+        r"CVE-\d{4}-\d+",
+        text,
+        re.IGNORECASE
+    )
+
+    if cves:
+        return cves[0]
+
+    ips = re.findall(
+        r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
+        text
+    )
+
+    if ips:
+        return ips[0]
+
+    return text[:50]
+
+
+def run_agent_graph(
+    user_input
+):
 
     investigation_log = []
 
     # =====================================
-    # Automatic CVE Correlation
+    # CVE Auto Investigation
     # =====================================
-
-    cve_findings = []
 
     cves = re.findall(
         r"CVE-\d{4}-\d+",
@@ -148,48 +189,61 @@ def run_agent_graph(user_input):
         re.IGNORECASE
     )
 
+    cve_findings = []
+
     for cve in cves:
 
-        result = execute_tool(
+        cve_result = execute_tool(
             "cve_lookup",
             {
                 "cve": cve
             }
         )
 
-        cve_findings.append(
-            result
+        investigation_log.append(
+            {
+                "tool": "cve_lookup",
+                "arguments": {
+                    "cve": cve
+                },
+                "result": cve_result
+            }
         )
 
-        investigation_log.append({
-            "tool": "cve_lookup",
-            "arguments": {
-                "cve": cve
-            },
-            "result": result
-        })
+        cve_findings.append(
+            cve_result
+        )
 
     # =====================================
     # Memory Correlation
     # =====================================
 
+    indicator = (
+        extract_indicator_for_memory(
+            user_input
+        )
+    )
+
     memory_result = execute_tool(
         "memory_lookup",
         {
-            "query":
-            user_input[:100]
+            "query": indicator
         }
     )
 
-    investigation_log.append({
-        "tool": "memory_lookup",
-        "arguments": {
-            "query":
-            user_input[:100]
-        },
-        "result":
-        memory_result
-    })
+    investigation_log.append(
+        {
+            "tool": "memory_lookup",
+            "arguments": {
+                "query": indicator
+            },
+            "result": memory_result
+        }
+    )
+
+    # =====================================
+    # LLM Investigation
+    # =====================================
 
     tools = build_openai_tools()
 
@@ -238,29 +292,37 @@ def run_agent_graph(user_input):
                     investigation_log
                 }
 
-            # ==========================
+            # =====================================
             # Collect MITRE Findings
-            # ==========================
+            # =====================================
 
             mitre_findings = []
 
-            for entry in investigation_log:
+            for item in investigation_log:
 
                 if (
-                    entry["tool"]
+                    item["tool"]
                     == "mitre_mapper"
                 ):
 
                     mitre_findings.extend(
-                        entry["result"].get(
+                        item["result"].get(
                             "matches",
                             []
                         )
                     )
 
-            # ==========================
+            result[
+                "mitre_findings"
+            ] = mitre_findings
+
+            result[
+                "cve_findings"
+            ] = cve_findings
+
+            # =====================================
             # Store Findings
-            # ==========================
+            # =====================================
 
             if result.get(
                 "verdict"
@@ -272,7 +334,8 @@ def run_agent_graph(user_input):
                 finding = (
                     f"{result.get('verdict')} "
                     f"{result.get('incident_type', 'incident')} "
-                    f"{user_input[:250]}"
+                    f"detected: "
+                    f"{indicator}"
                 )
 
                 memory_store_result = (
@@ -285,20 +348,22 @@ def run_agent_graph(user_input):
                     )
                 )
 
-                investigation_log.append({
-                    "tool":
-                    "memory_store",
-                    "arguments": {
-                        "finding":
-                        finding
-                    },
-                    "result":
-                    memory_store_result
-                })
+                investigation_log.append(
+                    {
+                        "tool":
+                        "memory_store",
+                        "arguments": {
+                            "finding":
+                            finding
+                        },
+                        "result":
+                        memory_store_result
+                    }
+                )
 
-            # ==========================
-            # Single Report Generation
-            # ==========================
+            # =====================================
+            # Generate Report ONCE
+            # =====================================
 
             report = execute_tool(
                 "generate_executive_report",
@@ -311,19 +376,21 @@ def run_agent_graph(user_input):
                 }
             )
 
-            investigation_log.append({
-                "tool":
-                "generate_executive_report",
-                "arguments": {
-                    "investigation":
-                    result.get(
-                        "reason",
-                        ""
-                    )
-                },
-                "result":
-                report
-            })
+            investigation_log.append(
+                {
+                    "tool":
+                    "generate_executive_report",
+                    "arguments": {
+                        "investigation":
+                        result.get(
+                            "reason",
+                            ""
+                        )
+                    },
+                    "result":
+                    report
+                }
+            )
 
             result[
                 "executive_summary"
@@ -331,14 +398,6 @@ def run_agent_graph(user_input):
                 "executive_summary",
                 ""
             )
-
-            result[
-                "mitre_findings"
-            ] = mitre_findings
-
-            result[
-                "cve_findings"
-            ] = cve_findings
 
             result[
                 "investigation_log"
@@ -350,37 +409,31 @@ def run_agent_graph(user_input):
             message
         )
 
-        for tool_call in (
-            message.tool_calls
-        ):
+        for tool_call in message.tool_calls:
 
             tool_name = (
-                tool_call
-                .function
-                .name
+                tool_call.function.name
             )
 
             arguments = json.loads(
-                tool_call
-                .function
-                .arguments
+                tool_call.function.arguments
             )
 
-            tool_result = (
-                execute_tool(
-                    tool_name,
-                    arguments
-                )
-            )
-
-            investigation_log.append({
-                "tool":
+            tool_result = execute_tool(
                 tool_name,
-                "arguments":
-                arguments,
-                "result":
-                tool_result
-            })
+                arguments
+            )
+
+            investigation_log.append(
+                {
+                    "tool":
+                    tool_name,
+                    "arguments":
+                    arguments,
+                    "result":
+                    tool_result
+                }
+            )
 
             auto_correlate(
                 tool_name,
@@ -388,26 +441,24 @@ def run_agent_graph(user_input):
                 investigation_log
             )
 
-            messages.append({
-                "role":
-                "tool",
-                "tool_call_id":
-                tool_call.id,
-                "content":
-                json.dumps(
-                    tool_result
-                )
-            })
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id":
+                    tool_call.id,
+                    "content":
+                    json.dumps(
+                        tool_result
+                    )
+                }
+            )
 
         tool_calls_count += 1
 
     return {
-        "verdict":
-        "suspicious",
-        "confidence":
-        0.5,
-        "risk_score":
-        5,
+        "verdict": "suspicious",
+        "confidence": 0.5,
+        "risk_score": 5,
         "reason":
         "Maximum tool calls exceeded.",
         "investigation_log":
