@@ -1,273 +1,214 @@
-# SentinelAI BUILD LOG
+# SentinelAI Build Log
 
-## Project Overview
+## Project Goal
 
-SentinelAI is an agentic Security Operations Center (SOC) analyst designed to investigate URLs and potential phishing activity using LLM reasoning combined with external threat intelligence.
+SentinelAI is an AI-powered Security Operations Center (SOC) analyst that autonomously investigates cybersecurity incidents using LLM reasoning, MCP tools, VirusTotal threat intelligence, CVE intelligence, MITRE ATT&CK knowledge, memory correlation, and executive reporting.
 
-The goal of the project was to move beyond a traditional chatbot and build a system where an LLM can reason about a security request, decide when a tool is needed, execute that tool, interpret the result, and generate a structured security verdict.
-
----
-
-## Iteration 1 – Baseline LLM Prototype
-
-### Architecture
-
-* Single GPT-4o-mini based workflow
-* No external tools
-* Prompt-response interaction only
-
-### Results
-
-The model could explain security concepts and provide general phishing guidance, but it frequently relied on assumptions instead of evidence.
-
-### Problems Identified
-
-* No grounding in external threat intelligence
-* Hallucinated security reasoning
-* Inconsistent classifications
-* Not truly agentic
-
-### Lessons Learned
-
-A SOC analyst system requires access to real-world intelligence rather than relying solely on model knowledge.
+The objective was to build a production-ready security investigation platform that behaves like a Tier 2/Tier 3 SOC analyst rather than a simple chatbot.
 
 ---
 
-## Iteration 2 – MCP Tool Integration
+# Initial Architecture
 
-### Changes Implemented
+The first version of SentinelAI relied heavily on Python decision logic.
 
-Created a custom MCP-style tool:
+Examples included:
 
-* `url_reputation_check`
+* Hardcoded phishing detection
+* Hardcoded risk scoring
+* Hardcoded verdict assignment
+* Hardcoded MITRE mappings
+* Python-controlled investigation flow
 
-Tool definition included:
+Although functional, this architecture did not satisfy the agentic requirements because Python was making most investigation decisions.
 
-* Tool name
-* Tool description
-* Input schema
-* Executable function
+Examples included:
 
-### Improvement
-
-The system gained access to external threat intelligence and URL reputation analysis.
-
-### Impact
-
-Reduced unsupported reasoning and provided evidence-based verdicts.
+* Python deciding when something was phishing
+* Python assigning malicious/suspicious verdicts
+* Python calculating investigation outcomes
+* Rule-based reasoning replacing model reasoning
 
 ---
 
-## Iteration 3 – Agent Runtime Loop
+# Iteration 1: LLM-Centered Investigation Flow
 
-### Changes Implemented
+The investigation runtime was redesigned so that:
 
-Created an agent runtime loop that supports:
+* The LLM receives the user incident
+* The LLM decides which MCP tools to call
+* The LLM receives tool results
+* The LLM decides what to investigate next
+* The LLM produces the final verdict
 
-1. LLM reasoning
-2. Tool selection
-3. Tool execution
-4. Observation of tool output
-5. Final decision generation
+The Python layer became an execution engine rather than a decision engine.
 
-### Improvement
-
-The system transitioned from a simple prompt-response application into an agentic workflow.
-
-### Agentic Behavior
-
-The model can:
-
-* Determine whether a tool is required
-* Request tool execution
-* Review tool output
-* Produce a final SOC verdict
-
-This implements a reasoning → action → observation pattern.
+This significantly increased agentic behavior.
 
 ---
 
-## Iteration 4 – VirusTotal Grounding
+# Iteration 2: MCP Tool Architecture
 
-### Changes Implemented
+Security capabilities were exposed as MCP tools:
 
-Integrated VirusTotal URL intelligence.
+### analyze_email
 
-The URL reputation tool now combines:
+Extracts indicators from email content.
 
-* Heuristic phishing indicators
-* HTTP/HTTPS checks
-* Suspicious keyword detection
-* VirusTotal analysis results
+### url_reputation_check
 
-### Improvement
+Queries VirusTotal for URL intelligence.
 
-Threat assessments became grounded in real-world security intelligence rather than relying entirely on model reasoning.
+### cve_lookup
 
-### Impact
+Retrieves vulnerability intelligence.
 
-Improved confidence and realism of security classifications.
+### memory_lookup
+
+Searches previous investigations.
+
+### memory_store
+
+Stores investigation findings.
+
+### mitre_mapper
+
+Provides MITRE ATT&CK reference knowledge.
+
+### generate_executive_report
+
+Produces executive-level summaries.
+
+The LLM decides when and how to use each tool.
 
 ---
 
-## Iteration 5 – Evaluation Framework
+# Iteration 3: Live Threat Intelligence
 
-### Changes Implemented
+The original CVE implementation used a local vulnerability database.
 
-Created:
+This was replaced with a live NVD lookup.
 
-* `eval.py`
-* `eval_dataset.json`
-* `report.json`
+Benefits:
 
-Evaluation metrics:
+* Real-world vulnerability intelligence
+* Up-to-date CVSS scores
+* Real vulnerability descriptions
+* Better grounding
+
+VirusTotal integration was also retained to provide live URL reputation intelligence.
+
+---
+
+# Iteration 4: Deployment Improvements
+
+Frontend:
+
+* React
+* Vite
+* Vercel
+
+Backend:
+
+* FastAPI
+* Render
+
+Several deployment issues were resolved:
+
+* CORS failures
+* Environment variable configuration
+* API connectivity
+* Production routing
+
+The final system is publicly accessible.
+
+---
+
+# Iteration 5: Evaluation Framework
+
+A structured evaluation framework was added.
+
+Dataset size:
+
+* 55 security investigation samples
+
+Metrics collected:
 
 * Accuracy
 * Precision
 * Recall
 * F1 Score
-* True Positives
-* False Positives
-* True Negatives
-* False Negatives
 
-### Initial Results
+Final results:
 
-Initial URL scoring thresholds produced low recall and excessive "suspicious" classifications.
+* Accuracy: 76.4%
+* Precision: 92.9%
+* Recall: 52.0%
+* F1 Score: 66.7%
 
-### Problem Identified
-
-Many phishing URLs were not being classified as malicious despite containing multiple phishing indicators.
+The system favors low false positives, which is desirable in SOC workflows.
 
 ---
 
-## Iteration 6 – Threshold Tuning and Validation
+# Final Architecture
 
-### Changes Implemented
-
-Refined URL reputation scoring logic.
-
-Added:
-
-* Additional phishing indicators
-* Improved risk thresholds
-* Better malicious classification rules
-
-### Final Evaluation Results
-
-Accuracy: 90.9%
-
-Precision: 95.5%
-
-Recall: 84.0%
-
-F1 Score: 89.4%
-
-Confusion Matrix:
-
-* TP = 21
-* FP = 1
-* TN = 29
-* FN = 4
-
-### Impact
-
-Substantially improved phishing detection performance while maintaining a low false-positive rate.
-
----
-
-## Prompt Engineering History
-
-### Prompt Version 1
-
-Simple SOC analyst role prompt.
-
-Problems:
-
-* Inconsistent output formatting
-* Weak tool usage behavior
-
----
-
-### Prompt Version 2
-
-Added:
-
-* Structured JSON output
-* Tool usage instructions
-* Security classification guidance
-
-Improvement:
-
-* More consistent responses
-* Better tool integration
-
----
-
-### Final Prompt
-
-Added:
-
-* Strict SOC analyst role
-* Mandatory structured output
-* Confidence reporting
-* Evidence-based verdicts
-
-Result:
-
-* Stable outputs
-* Better evaluation consistency
-* Reduced hallucinated responses
-
----
-
-## Final Architecture
-
-Frontend (React/Vite)
+User Input
 
 ↓
 
-FastAPI Backend
+GPT-4.1-mini
 
 ↓
 
-Agent Runtime
+LLM decides tool usage
 
 ↓
 
-GPT-4o-mini
+MCP Tool Execution
 
 ↓
 
-URL Reputation Tool
+VirusTotal / NVD / Memory / MITRE
 
 ↓
 
-VirusTotal API
+LLM reasoning
+
+↓
+
+Executive Report
+
+↓
+
+Final Investigation Result
 
 ---
 
-## Known Limitations
+# Known Limitations
 
-* Currently focused on URL investigations
-* Single-tool architecture
-* Limited evaluation dataset size
-* No persistent memory between investigations
+Current limitations include:
 
----
-
-## Future Improvements
-
-* Add AbuseIPDB integration
-* Add WHOIS enrichment
-* Expand evaluation dataset to 500+ samples
-* Introduce multi-agent orchestration
-* Add persistent incident tracking and memory
+* Memory storage is local rather than enterprise-scale
+* Recall can be improved on difficult phishing cases
+* VirusTotal coverage depends on available intelligence
+* MITRE ATT&CK knowledge is currently reference-based rather than dynamically retrieved
 
 ---
 
-## Summary
+# Future Improvements
 
-SentinelAI evolved from a simple LLM prototype into an agentic SOC analyst capable of tool usage, grounded threat intelligence analysis, structured decision making, and quantitative evaluation.
+Given additional development time:
 
-The project demonstrates prompt engineering, grounding, MCP-style tool integration, agentic execution, deployment, and evaluation within a real cybersecurity use case.
+* Add SIEM integrations
+* Add Splunk connectors
+* Add Microsoft Defender integration
+* Add CrowdStrike integration
+
+
+---
+
+# Final Outcome
+
+SentinelAI evolved from a partially rule-based security application into a fully agentic AI SOC analyst where the model drives investigation decisions, tool usage, evidence correlation, and reporting.
+
+The final system demonstrates prompt engineering, grounding, MCP tool execution, autonomous reasoning, evaluation, deployment, and iterative improvement.

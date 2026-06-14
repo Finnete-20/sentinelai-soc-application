@@ -1,189 +1,392 @@
-# SentinelAI – Agentic SOC Analyst (Project 3 Capstone)
+# SentinelAI
 
-## 1. Overview
+## AI-Powered SOC Analyst
 
-SentinelAI is an AI-powered Security Operations Center (SOC) analyst that autonomously investigates security incidents such as URLs, emails, and security logs. The system uses an LLM-driven agent architecture that can independently decide when to call external tools (MCP tools), analyze results, and produce structured security verdicts.
+SentinelAI is an AI-powered Security Operations Center (SOC) analyst that autonomously investigates cybersecurity incidents using LLM-driven reasoning, MCP tools, VirusTotal threat intelligence, live NVD CVE lookups, MITRE ATT&CK knowledge, memory correlation, and executive reporting.
 
-This project combines:
-
-* Prompt engineering and grounding (Project 1)
-* Agentic multi-step reasoning and tool use (Project 2)
-* Production deployment and evaluation (Project 3)
+The system is designed to emulate Tier 2 / Tier 3 SOC analyst workflows by allowing the model to make investigation decisions, call tools autonomously, gather evidence, correlate findings, and produce executive-level reports.
 
 ---
 
-## 2. Problem Statement
+# Live Application
 
-Security analysts are overloaded with repetitive triage tasks such as:
+## Frontend
 
-* Checking malicious URLs
-* Reviewing phishing emails
-* Interpreting raw security logs
+https://sentinelai-soc-application.vercel.app
 
-SentinelAI automates this first-layer SOC triage by acting as a reasoning agent that can:
+## Backend
 
-* Decide whether a tool is needed
-* Call external intelligence APIs
-* Interpret results
-* Produce structured SOC reports
+https://sentinelai-backend-w5bu.onrender.com
 
 ---
 
-## 3. System Architecture
+# Problem Statement
 
-### Backend (FastAPI Agent System)
+Security analysts spend significant time investigating alerts, phishing emails, suspicious URLs, vulnerabilities, and threat intelligence indicators.
 
-Components:
+Many organizations lack the resources to perform consistent investigations across every alert.
 
-* `main.py` → API entry point
-* `agent_runtime.py` → LLM agent execution loop (core agentic logic)
-* `tool_registry.py` → MCP tool definitions + execution mapping
-* `url_tool.py` → live URL threat intelligence tool (VirusTotal-style integration)
-* `system_prompt.txt` → defines SOC analyst behavior
-* `llm_client.py` → OpenAI API wrapper
+SentinelAI helps automate this process by:
 
-### Frontend (React)
+- Investigating security incidents
+- Correlating evidence
+- Querying threat intelligence
+- Looking up vulnerabilities
+- Mapping MITRE ATT&CK techniques
+- Generating executive reports
 
-* Investigator UI for submitting URLs/emails
-* Evaluation dashboard
-* API integration layer
+The goal is to reduce analyst workload while improving investigation consistency.
 
 ---
 
-## 4. Agentic Behavior (CRITICAL FOR RUBRIC)
+# Target Users
 
-The system is agentic because:
-
-1. The LLM receives a security request
-2. It decides whether external tools are required
-3. It outputs a structured tool call (JSON format)
-4. The backend executes the tool
-5. Tool output is returned to the LLM
-6. The LLM decides whether to:
-
-   * call another tool, OR
-   * produce final SOC report
-
-👉 The decision-making is controlled by the LLM, NOT hardcoded Python logic.
+- Security Operations Centers (SOC)
+- Security Analysts
+- Cybersecurity Students
+- Incident Response Teams
+- Threat Intelligence Analysts
 
 ---
 
-## 5. MCP Tool (Custom Implementation)
+# System Architecture
 
-### URL Reputation Tool
-
-* Name: `url_reputation_check`
-* Input: URL string
-* Output: threat classification + metadata
-* Purpose: fetch real-time security intelligence
-
-This tool is exposed to the LLM through the tool registry and executed dynamically during runtime.
-
----
-
-## 6. Evaluation
-
-A structured evaluation dataset was created:
-
-* 16 phishing URLs
-* 16 legitimate URLs
-* 8 edge cases
-
-Metrics tracked:
-
-* Accuracy
-* False positives
-* False negatives
-
-Example result:
-
-* Accuracy: ~80%
-* False Positive Rate: 8%
-* False Negative Rate: 5%
-
----
-
-## 7. Prompt Engineering
-
-The system prompt was iterated to improve:
-
-### Version 1:
-
-Basic SOC analyst role prompt
-
-### Version 2:
-
-Added:
-
-* structured output format
-* tool usage rules
-* strict risk classification
-* decision constraints
-
-### Final Version:
-
-Enforces:
-
-* tool-first behavior for URLs/emails
-* structured SOC report format
-* risk classification discipline
-
----
-
-## 8. Deployment
-
-* Backend: Render
-* Frontend: Vercel
-
-Live system:
-
-* Users can submit URLs and receive SOC verdicts in real time
-
----
-
-## 9. Limitations
-
-* Cold start latency on free Render tier
-* Tool results depend on external API availability
-* LLM may occasionally over-call tools
-
----
-
-## 10. Future Improvements
-
-* Add multi-tool correlation (VirusTotal + AbuseIPDB + WHOIS)
-* Add persistent incident memory (case tracking)
-* Add streaming reasoning UI
-* Improve evaluation dataset size
-
----
-
-## 11. Example Interaction
-
-User:
-
-```
-Check this URL: http://suspicious-site.com
+```text
+User Input
+      │
+      ▼
+ GPT-4.1-mini
+      │
+      ▼
+ MCP Tool Selection
+      │
+      ▼
+ ┌───────────────────────┐
+ │ analyze_email         │
+ │ url_reputation_check  │
+ │ cve_lookup            │
+ │ memory_lookup         │
+ │ memory_store          │
+ │ mitre_mapper          │
+ │ generate_report       │
+ └───────────────────────┘
+      │
+      ▼
+ Grounded Evidence
+      │
+      ▼
+ GPT-4.1-mini Reasoning
+      │
+      ▼
+ Executive Report
+      │
+      ▼
+ Final Investigation
 ```
 
-System:
+---
 
-1. LLM decides to call URL tool
-2. Tool returns malicious signal
-3. LLM outputs:
+# Technologies Used
 
-* Risk: HIGH
-* Verdict: MALICIOUS
-* Evidence: domain reputation flagged + heuristics
+## Frontend
+
+- React
+- Vite
+- JavaScript
+- Vercel
+
+## Backend
+
+- FastAPI
+- Python
+- OpenAI API
+
+## Threat Intelligence
+
+- VirusTotal API
+- NVD API
+
+## Security Knowledge
+
+- MITRE ATT&CK
 
 ---
 
-## 12. Conclusion
+# MCP Tools
 
-SentinelAI demonstrates a full agentic AI system where an LLM autonomously:
+## analyze_email
 
-* selects tools
-* interprets external data
-* generates structured security decisions
+Purpose:
 
-This bridges prompt engineering, tool use, and production AI systems in a real-world SOC use case.
+Extract indicators from email content.
+
+Returns:
+
+- Email addresses
+- URLs
+- Domains
+- CVEs
+- IP addresses
+
+---
+
+## url_reputation_check
+
+Purpose:
+
+Query VirusTotal for URL reputation.
+
+Returns:
+
+- Reputation information
+- Analysis statistics
+- Categories
+- Threat intelligence
+
+---
+
+## cve_lookup
+
+Purpose:
+
+Retrieve live vulnerability intelligence from the National Vulnerability Database (NVD).
+
+Returns:
+
+- CVSS score
+- Severity
+- Description
+- Vulnerability details
+
+---
+
+## memory_lookup
+
+Purpose:
+
+Search previous investigations.
+
+Returns:
+
+- Historical findings
+- Prior investigations
+
+---
+
+## memory_store
+
+Purpose:
+
+Persist investigation findings for future correlation.
+
+Returns:
+
+- Stored record confirmation
+
+---
+
+## mitre_mapper
+
+Purpose:
+
+Provide MITRE ATT&CK reference knowledge.
+
+Returns:
+
+- Techniques
+- Tactics
+- Detection recommendations
+
+---
+
+## generate_executive_report
+
+Purpose:
+
+Generate executive-level summaries.
+
+Returns:
+
+- Executive summary
+- Analyst notes
+
+---
+
+# What Makes SentinelAI Agentic?
+
+The model is responsible for investigation decisions.
+
+The Python application does not decide:
+
+- Which tools to call
+- Whether a tool should be called
+- What verdict to assign
+- What risk score to assign
+- What investigation path to follow
+
+Instead:
+
+1. The model receives the incident.
+2. The model decides which MCP tools are needed.
+3. The model calls tools.
+4. The model receives tool results.
+5. The model decides whether more tools are required.
+6. The model produces the final investigation result.
+
+This satisfies the project's definition of agentic behavior because the model, not Python, drives decision-making.
+
+---
+
+# Grounding
+
+SentinelAI is grounded through multiple external sources.
+
+## VirusTotal
+
+Provides live threat intelligence for URLs.
+
+## NVD
+
+Provides live CVE intelligence and vulnerability data.
+
+## MITRE ATT&CK
+
+Provides attacker technique knowledge.
+
+## Memory
+
+Provides historical investigation context.
+
+These sources give the model access to information not available through pretraining alone.
+
+---
+
+# Example Investigation
+
+Input:
+
+```text
+GVSU Enrollment Form!
+
+Michael Brown <williamsmithn800@gmail.com>
+
+https://forms.gle/r1yZEXiJ1ms6Rsw58
+```
+
+Investigation Process:
+
+1. Model receives email.
+2. Model calls analyze_email.
+3. Model discovers URL and sender.
+4. Model calls url_reputation_check.
+5. Model calls memory_lookup.
+6. Model calls mitre_mapper.
+7. Model generates final assessment.
+
+Output:
+
+```json
+{
+  "verdict": "malicious",
+  "confidence": 0.85,
+  "incident_type": "Phishing Attempt"
+}
+```
+
+---
+
+# Evaluation
+
+Evaluation was performed using a dataset of 55 investigation samples.
+
+Metrics:
+
+```json
+{
+  "accuracy": 0.764,
+  "precision": 0.929,
+  "recall": 0.520,
+  "f1": 0.667
+}
+```
+
+Interpretation:
+
+- High precision means alerts flagged as malicious are usually correct.
+- Low false-positive rate reduces analyst fatigue.
+- Recall can be improved in future versions.
+
+---
+
+# Known Limitations
+
+- Recall can be improved on certain phishing scenarios
+- Memory storage is local
+- Limited enterprise integrations
+- MITRE knowledge is reference-based
+
+---
+
+# Future Work
+
+- Splunk integration
+- CrowdStrike integration
+- Microsoft Defender integration
+- Enterprise memory storage
+- Expanded evaluation datasets
+- Additional threat intelligence feeds
+- Analyst feedback learning loops
+
+---
+
+# Repository Structure
+
+```text
+backend/
+├── app/
+│   ├── api/
+│   ├── core/
+│   ├── tools/
+│   ├── prompts/
+│   └── reports/
+│
+├── evaluation/
+│   ├── eval.py
+│   ├── eval_dataset.json
+│   └── report.json
+│
+└── requirements.txt
+
+frontend/
+├── src/
+├── public/
+└── package.json
+```
+
+---
+
+# Build Log
+
+A detailed development history, iterations, evaluation process, architectural changes, and responses to instructor feedback can be found in:
+
+```text
+BUILD_LOG.md
+```
+
+---
+
+# Author
+
+**Finnete George**
+
+Master's Student in Cybersecurity
+
+Grand Valley State University
+
+---
+
+# License
+
+Educational Capstone Project
+
+AI-Powered Security Operations Center Analyst
