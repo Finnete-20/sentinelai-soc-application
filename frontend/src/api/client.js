@@ -1,21 +1,32 @@
 const BASE_URL = "http://localhost:8000";
 
-export async function analyzeURL(url) {
-  const res = await fetch(`${BASE_URL}/investigate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url })
-  });
+export async function investigate(input) {
+    try {
+        const response = await fetch(
+            `${BASE_URL}/investigate`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    input
+                })
+            }
+        );
 
-  return await res.json();
-}
+        const data = await response.json();
 
-export async function runEvaluation(dataset) {
-  const res = await fetch(`${BASE_URL}/evaluate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dataset })
-  });
+        return {
+            success: true,
+            data
+        };
 
-  return await res.json();
+    } catch (error) {
+
+        return {
+            success: false,
+            error: error.message
+        };
+    }
 }

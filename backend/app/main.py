@@ -1,43 +1,38 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from app.core.agent_runtime import run_agent
+from app.core.agent_runtime import run_agent_graph
 from app.api.report import router as report_router
 
+
 app = FastAPI(
-    title="SentinelAI SOC Copilot",
-    version="0.1.0"
+    title="SentinelAI",
+    description="AI-powered SOC Analyst",
+    version="2.0"
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-# routes
 app.include_router(report_router)
 
 
+class InvestigationRequest(BaseModel):
+    input: str
+
+
 @app.get("/")
-def root():
-    return {
-        "status": "ok",
-        "message": "SentinelAI running"
-    }
-
-
-@app.get("/health")
 def health():
-    return {"status": "healthy"}
+
+    return {
+        "status": "online",
+        "service": "SentinelAI SOC"
+    }
 
 
 @app.post("/investigate")
-def investigate(payload: dict):
-    result = run_agent(payload.get("input", ""))
-    return {
-        "input": payload.get("input"),
-        "result": result
-    }
+def investigate(request: InvestigationRequest):
+
+    result = run_agent_graph(
+        request.input
+    )
+
+    return result

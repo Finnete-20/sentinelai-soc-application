@@ -1,60 +1,89 @@
 import os
 
-# =========================================================
-# ABSOLUTE ROOT RESOLUTION (CRITICAL FIX)
-# =========================================================
-
-# get current file location
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# go up to project root (THIS IS THE KEY FIX)
-PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "../../"))
-
-PROMPT_PATH = os.path.join(PROJECT_ROOT, "app", "prompts", "system_prompt.txt")
+from dotenv import load_dotenv
+from openai import OpenAI
 
 
-# =========================================================
-# SAFE PROMPT LOADER
-# =========================================================
+try:
+    load_dotenv(encoding="utf-8")
+except Exception:
+    pass
+
+
+CURRENT_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(CURRENT_DIR, "../../")
+)
+
+PROMPT_PATH = os.path.join(
+    PROJECT_ROOT,
+    "app",
+    "prompts",
+    "system_prompt.txt"
+)
+
+
 def load_system_prompt():
-    """
-    Always resolves correctly no matter where script is executed from:
-    - backend/evaluation
-    - backend/
-    - root folder
-    - Render / Vercel
-    """
 
     if os.path.exists(PROMPT_PATH):
-        with open(PROMPT_PATH, "r", encoding="utf-8") as f:
+
+        with open(
+            PROMPT_PATH,
+            "r",
+            encoding="utf-8"
+        ) as f:
+
             return f.read()
 
-    # SAFE FALLBACK (prevents crashes in grading)
     return (
-        "You are SentinelAI, a SOC analyst AI. "
-        "Classify inputs as SAFE, SUSPICIOUS, or MALICIOUS."
+        "You are SentinelAI, "
+        "an AI-powered SOC analyst."
     )
 
 
-# =========================================================
-# LLM WRAPPER
-# =========================================================
-def run_llm(messages, client):
-    """
-    Sends request to OpenAI with system prompt injected.
-    """
+def get_client():
+
+    api_key = os.getenv(
+        "OPENAI_API_KEY"
+    )
+
+    if (
+        not api_key
+        or "your_openai_api_key_here" in api_key
+    ):
+        raise ValueError(
+            "OPENAI_API_KEY not configured"
+        )
+
+    return OpenAI(
+        api_key=api_key
+    )
+
+
+def run_llm(
+    messages,
+    tools=None,
+    model="gpt-4o-mini"
+):
+
+    client = get_client()
 
     system_prompt = load_system_prompt()
 
     full_messages = [
-        {"role": "system", "content": system_prompt},
+        {
+            "role": "system",
+            "content": system_prompt
+        },
         *messages
     ]
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
+    return client.chat.completions.create(
+        model=model,
         messages=full_messages,
+        tools=tools,
         temperature=0.2
     )
-
-    return response.choices[0].message.content

@@ -1,0 +1,42 @@
+﻿# Secrets
+backend/.env
+backend/.env.*
+*.env
+*.key
+*.pem
+
+# Runtime data
+backend/investigation_memory.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Vite
+.vite/
+
+# Logs
+*.log
+
+# Build artifacts
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

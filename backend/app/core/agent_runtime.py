@@ -4,37 +4,46 @@ from app.core.llm_client import run_llm
 from app.core.tool_registry import TOOLS
 
 
-MAX_STEPS = 8
+MAX_TOOL_CALLS = 10
 
 
-def parse_tool_call(response: str):
+def build_openai_tools():
 
-    try:
+    openai_tools = []
 
-        if not response.lower().startswith("tool:"):
-            return None, None
+    for name, details in TOOLS.items():
 
-        parts = response.split("|")
+        properties = {}
 
-        tool_name = (
-            parts[0]
-            .replace("tool:", "")
-            .strip()
+        required = []
+
+        for field_name in details["input_schema"]:
+
+            properties[field_name] = {
+                "type": "string"
+            }
+
+            required.append(field_name)
+
+        openai_tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": details["description"],
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required
+                    }
+                }
+            }
         )
 
-        tool_input = (
-            parts[1].strip()
-            if len(parts) > 1
-            else ""
-        )
-
-        return tool_name, tool_input
-
-    except Exception:
-        return None, None
+    return openai_tools
 
 
-def execute_tool(tool_name, tool_input):
+def execute_tool(tool_name, arguments):
 
     if tool_name not in TOOLS:
 
@@ -46,18 +55,22 @@ def execute_tool(tool_name, tool_input):
 
     fn = tool["function"]
 
-    schema = tool["input_schema"]
+    try:
 
-    field_name = list(schema.keys())[0]
+        result = fn(**arguments)
 
-    kwargs = {
-        field_name: tool_input
-    }
+        return result
 
-    return fn(**kwargs)
+    except Exception as e:
+
+        return {
+            "error": str(e)
+        }
 
 
-def run_agent_graph(user_input, client=None):
+def run_agent_graph(user_input):
+
+    tools = build_openai_tools()
 
     messages = [
         {
@@ -68,68 +81,82 @@ def run_agent_graph(user_input, client=None):
 
     investigation_log = []
 
-    step = 0
+    tool_calls_count = 0
 
-    response = run_llm(messages, client)
+    while tool_calls_count < MAX_TOOL_CALLS:
 
-    while step < MAX_STEPS:
+        response = run_llm(
+            messages=messages,
+            tools=tools
+        )
 
-        if (
-            isinstance(response, str)
-            and response.lower().startswith("tool:")
-        ):
+        message = response.choices[0].message
 
-            tool_name, tool_input = (
-                parse_tool_call(response)
+        if not message.tool_calls:
+
+            content = message.content
+
+            try:
+
+                result = json.loads(content)
+
+                result["investigation_log"] = (
+                    investigation_log
+                )
+
+                return result
+
+            except Exception:
+
+                return {
+                    "verdict": "suspicious",
+                    "confidence": 0.5,
+                    "risk_score": 5,
+                    "reason": content,
+                    "investigation_log": investigation_log
+                }
+
+        messages.append(message)
+
+        for tool_call in message.tool_calls:
+
+            tool_name = (
+                tool_call.function.name
             )
 
-            result = execute_tool(
+            arguments = json.loads(
+                tool_call.function.arguments
+            )
+
+            tool_result = execute_tool(
                 tool_name,
-                tool_input
+                arguments
             )
 
-            investigation_log.append({
-                "tool": tool_name,
-                "input": tool_input,
-                "result": result
-            })
-
-            messages.append({
-                "role": "assistant",
-                "content": response
-            })
-
-            messages.append({
-                "role": "tool",
-                "content": json.dumps(result)
-            })
-
-            response = run_llm(
-                messages,
-                client
+            investigation_log.append(
+                {
+                    "tool": tool_name,
+                    "arguments": arguments,
+                    "result": tool_result
+                }
             )
 
-            step += 1
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": json.dumps(
+                        tool_result
+                    )
+                }
+            )
 
-            continue
+        tool_calls_count += 1
 
-        break
-
-    try:
-
-        final_response = json.loads(response)
-
-        final_response[
-            "investigation_log"
-        ] = investigation_log
-
-        return final_response
-
-    except Exception:
-
-        return {
-            "verdict": "suspicious",
-            "confidence": 0.5,
-            "reason": response,
-            "investigation_log": investigation_log
-        }
+    return {
+        "verdict": "suspicious",
+        "confidence": 0.5,
+        "risk_score": 5,
+        "reason": "Maximum tool calls exceeded.",
+        "investigation_log": investigation_log
+    }

@@ -1,15 +1,72 @@
-# secrets
+# =========================
+# Secrets
+# =========================
+
 .env
 .env.*
+*.env
 *.key
+*.pem
 
-# python
+# =========================
+# Python
+# =========================
+
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# node
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Project Runtime Data
+# =========================
+
+investigation_memory.json
+
+# Generated evaluation outputs
+backend/evaluation/report.json
+
+# =========================
+# Logs
+# =========================
+
+*.log
+
+# =========================
+# Node / React
+# =========================
+
 node_modules/
 
-# builds
+# Vite
+.vite/
+
+# =========================
+# Build Artifacts
+# =========================
+
 dist/
 build/
+
+# =========================
+# OS Files
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE
+# =========================
+
+.vscode/
+.idea/

@@ -2,103 +2,198 @@ import { useState } from "react";
 import { investigate } from "../api/client";
 
 export default function Investigator() {
-    const [input, setInput] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState(null);
 
-    const handleSubmit = async () => {
+    const [input, setInput] = useState("");
+
+    const [loading, setLoading] =
+        useState(false);
+
+    const [result, setResult] =
+        useState(null);
+
+    async function handleSubmit() {
+
         if (!input.trim()) return;
 
         setLoading(true);
-        setResult(null);
 
-        const res = await investigate(input);
+        const response =
+            await investigate(input);
 
-        setResult(res);
+        setResult(response);
+
         setLoading(false);
-    };
-
-    const renderVerdict = (result) => {
-        if (!result?.data?.result) return null;
-
-        const text = result.data.result.toLowerCase();
-
-        let color = "gray";
-        if (text.includes("malicious")) color = "red";
-        else if (text.includes("safe")) color = "green";
-        else color = "orange";
-
-        return (
-            <div style={{
-                padding: "10px",
-                marginTop: "10px",
-                border: `2px solid ${color}`,
-                borderRadius: "8px"
-            }}>
-                <strong>Verdict:</strong> {result.data.result}
-            </div>
-        );
-    };
+    }
 
     return (
-        <div style={{
-            padding: "30px",
-            fontFamily: "Arial",
-            maxWidth: "900px",
-            margin: "0 auto"
-        }}>
-            <h1>🛡 SentinelAI SOC Copilot</h1>
-            <p>AI-powered phishing & threat intelligence analysis system</p>
+        <div
+            style={{
+                maxWidth: "1100px",
+                margin: "0 auto",
+                padding: "30px",
+                fontFamily: "Arial"
+            }}
+        >
+            <h1>
+                SentinelAI SOC Analyst
+            </h1>
+
+            <p>
+                Autonomous Security Investigation Platform
+            </p>
 
             <textarea
-                rows={5}
+                rows={6}
+                value={input}
+                onChange={(e) =>
+                    setInput(e.target.value)
+                }
+                placeholder="
+Investigate phishing URL http://secure-login-verification.com
+
+or
+
+Analyze CVE-2021-44228
+
+or
+
+Review this suspicious email...
+"
                 style={{
                     width: "100%",
-                    padding: "10px",
-                    fontSize: "14px"
+                    padding: "12px"
                 }}
-                placeholder="Paste suspicious URL, email, or log..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
             />
 
             <button
                 onClick={handleSubmit}
+                disabled={loading}
                 style={{
                     marginTop: "10px",
-                    padding: "10px 20px",
-                    cursor: "pointer"
+                    padding: "10px 20px"
                 }}
             >
-                Analyze Threat
+                {loading
+                    ? "Investigating..."
+                    : "Investigate"}
             </button>
 
-            {loading && (
-                <p style={{ marginTop: "10px" }}>Analyzing with AI agent...</p>
-            )}
-
-            {result?.success === false && (
-                <p style={{ color: "red" }}>
-                    Error: {result.error}
-                </p>
-            )}
-
             {result?.success && (
-                <div style={{ marginTop: "20px" }}>
-                    <h3>Analysis Output</h3>
 
-                    <pre style={{
-                        background: "#111",
-                        color: "#0f0",
-                        padding: "15px",
-                        borderRadius: "8px"
-                    }}>
-                        {JSON.stringify(result.data, null, 2)}
+                <div
+                    style={{
+                        marginTop: "30px"
+                    }}
+                >
+
+                    <h2>
+                        Investigation Result
+                    </h2>
+
+                    <div>
+
+                        <h3>
+                            Verdict:
+                            {" "}
+                            {result.data.verdict}
+                        </h3>
+
+                        <p>
+                            Risk Score:
+                            {" "}
+                            {result.data.risk_score}
+                        </p>
+
+                        <p>
+                            Confidence:
+                            {" "}
+                            {result.data.confidence}
+                        </p>
+
+                        <p>
+                            Incident Type:
+                            {" "}
+                            {result.data.incident_type}
+                        </p>
+
+                        <p>
+                            Reason:
+                            {" "}
+                            {result.data.reason}
+                        </p>
+
+                    </div>
+
+                    <hr />
+
+                    <h3>
+                        Executive Summary
+                    </h3>
+
+                    <p>
+                        {
+                            result.data
+                                .executive_summary
+                        }
+                    </p>
+
+                    <hr />
+
+                    <h3>
+                        MITRE ATT&CK Findings
+                    </h3>
+
+                    <pre>
+                        {
+                            JSON.stringify(
+                                result.data
+                                    .mitre_findings,
+                                null,
+                                2
+                            )
+                        }
                     </pre>
 
-                    {renderVerdict(result)}
+                    <hr />
+
+                    <h3>
+                        Investigation Timeline
+                    </h3>
+
+                    <pre
+                        style={{
+                            background: "#111",
+                            color: "#0f0",
+                            padding: "15px",
+                            overflowX: "auto"
+                        }}
+                    >
+                        {
+                            JSON.stringify(
+                                result.data
+                                    .investigation_log,
+                                null,
+                                2
+                            )
+                        }
+                    </pre>
+
                 </div>
             )}
+
+            {
+                result?.success === false &&
+                (
+                    <p
+                        style={{
+                            color: "red"
+                        }}
+                    >
+                        {result.error}
+                    </p>
+                )
+            }
+
         </div>
     );
 }
