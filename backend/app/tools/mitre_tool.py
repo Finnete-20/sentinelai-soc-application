@@ -1,4 +1,4 @@
-MITRE_MAPPINGS = {
+MITRE_KNOWLEDGE = {
 
     "phishing": {
         "technique": "T1566",
@@ -7,7 +7,7 @@ MITRE_MAPPINGS = {
         "detection": "Monitor email gateways and URL clicks."
     },
 
-    "credential": {
+    "credential_access": {
         "technique": "T1110",
         "name": "Credential Access",
         "tactic": "Credential Access",
@@ -18,17 +18,17 @@ MITRE_MAPPINGS = {
         "technique": "T1059.001",
         "name": "PowerShell",
         "tactic": "Execution",
-        "detection": "Monitor PowerShell logs."
+        "detection": "Monitor PowerShell logging."
     },
 
     "ransomware": {
         "technique": "T1486",
         "name": "Data Encrypted for Impact",
         "tactic": "Impact",
-        "detection": "Monitor encryption activity."
+        "detection": "Monitor abnormal encryption activity."
     },
 
-    "lateral movement": {
+    "lateral_movement": {
         "technique": "T1021",
         "name": "Remote Services",
         "tactic": "Lateral Movement",
@@ -47,33 +47,13 @@ MITRE_MAPPINGS = {
         "name": "Exfiltration Over C2 Channel",
         "tactic": "Exfiltration",
         "detection": "Monitor outbound traffic."
-    },
-
-    "impersonation": {
-        "technique": "T1566",
-        "name": "Phishing",
-        "tactic": "Initial Access",
-        "detection": "Monitor sender spoofing."
     }
 }
 
 
 def mitre_mapper(evidence: str):
 
-    evidence = evidence.lower()
-
-    matches = []
-
-    for keyword, mapping in MITRE_MAPPINGS.items():
-
-        if keyword in evidence:
-
-            matches.append({
-                "keyword": keyword,
-                **mapping
-            })
-
     return {
-        "match_count": len(matches),
-        "matches": matches
+        "knowledge_base": MITRE_KNOWLEDGE,
+        "query": evidence
     }
