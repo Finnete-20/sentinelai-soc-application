@@ -1,55 +1,9 @@
+import os
 import re
+import requests
 
 
-CVE_DATABASE = {
-    "CVE-2021-44228": {
-        "name": "Log4Shell",
-        "severity": "critical",
-        "cvss": 10.0,
-        "known_exploited": True,
-        "description": "Remote code execution vulnerability in Apache Log4j.",
-        "affected_products": [
-            "Apache Log4j 2"
-        ],
-        "recommended_actions": [
-            "Upgrade Log4j immediately",
-            "Search logs for exploitation attempts",
-            "Block known IOC indicators"
-        ]
-    },
-
-    "CVE-2017-0144": {
-        "name": "EternalBlue",
-        "severity": "critical",
-        "cvss": 9.8,
-        "known_exploited": True,
-        "description": "SMB remote code execution vulnerability.",
-        "affected_products": [
-            "Windows SMBv1"
-        ],
-        "recommended_actions": [
-            "Disable SMBv1",
-            "Apply Microsoft patches",
-            "Scan environment for vulnerable hosts"
-        ]
-    },
-
-    "CVE-2023-34362": {
-        "name": "MOVEit Transfer",
-        "severity": "critical",
-        "cvss": 9.8,
-        "known_exploited": True,
-        "description": "SQL injection vulnerability affecting MOVEit Transfer.",
-        "affected_products": [
-            "MOVEit Transfer"
-        ],
-        "recommended_actions": [
-            "Patch immediately",
-            "Review web logs",
-            "Investigate possible data exposure"
-        ]
-    }
-}
+NVD_API_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 
 def _normalize_cve(cve: str):
@@ -72,24 +26,100 @@ def cve_lookup(cve: str):
 
     cve = _normalize_cve(cve)
 
-    if cve in CVE_DATABASE:
+    try:
 
-        result = CVE_DATABASE[cve].copy()
+        response = requests.get(
+            NVD_API_BASE,
+            params={
+                "cveId": cve
+            },
+            timeout=15
+        )
 
-        result["cve"] = cve
+        if response.status_code != 200:
 
-        return result
+            return {
+                "cve": cve,
+                "lookup_status": "failed",
+                "status_code": response.status_code
+            }
 
-    return {
-        "cve": cve,
-        "name": "Unknown CVE",
-        "severity": "unknown",
-        "cvss": 0.0,
-        "known_exploited": False,
-        "description": "CVE not present in local intelligence database.",
-        "affected_products": [],
-        "recommended_actions": [
-            "Validate CVE identifier",
-            "Perform external vulnerability lookup"
-        ]
-    }
+        data = response.json()
+
+        vulnerabilities = data.get(
+            "vulnerabilities",
+            []
+        )
+
+        if not vulnerabilities:
+
+            return {
+                "cve": cve,
+                "lookup_status": "not_found"
+            }
+
+        vuln = vulnerabilities[0]
+
+        cve_data = vuln.get(
+            "cve",
+            {}
+        )
+
+        metrics = cve_data.get(
+            "metrics",
+            {}
+        )
+
+        cvss_score = None
+        severity = None
+
+        if "cvssMetricV31" in metrics:
+
+            metric = metrics[
+                "cvssMetricV31"
+            ][0]
+
+            cvss_score = (
+                metric["cvssData"]
+                .get("baseScore")
+            )
+
+            severity = (
+                metric["cvssData"]
+                .get("baseSeverity")
+            )
+
+        descriptions = cve_data.get(
+            "descriptions",
+            []
+        )
+
+        description = ""
+
+        for item in descriptions:
+
+            if item.get("lang") == "en":
+
+                description = item.get(
+                    "value",
+                    ""
+                )
+
+                break
+
+        return {
+            "cve": cve,
+            "lookup_status": "success",
+            "description": description,
+            "severity": severity,
+            "cvss_score": cvss_score,
+            "source": "NVD"
+        }
+
+    except Exception as e:
+
+        return {
+            "cve": cve,
+            "lookup_status": "error",
+            "error": str(e)
+        }
