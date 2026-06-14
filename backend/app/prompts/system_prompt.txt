@@ -61,11 +61,14 @@ Examples:
 
 CVE-2021-44228
 CVE-2023-23397
+CVE-2017-0144
 
 Returns:
 - severity
 - CVSS
 - exploitation status
+- affected products
+- remediation guidance
 
 ---------------------------------------------------------
 
@@ -80,6 +83,7 @@ Use when:
 - PowerShell activity is observed
 - Lateral movement is observed
 - Exfiltration is observed
+- Suspicious email activity is detected
 
 Examples:
 
@@ -89,6 +93,8 @@ powershell execution
 command and control
 lateral movement
 privilege escalation
+ransomware
+impersonation
 
 Returns:
 - ATT&CK techniques
@@ -112,7 +118,21 @@ Search using indicators only:
 - IP addresses
 - CVEs
 
-Never search the entire raw email body.
+Good examples:
+
+memory_lookup("attacker@gmail.com")
+
+memory_lookup("malicious-site.com")
+
+memory_lookup("192.168.1.50")
+
+memory_lookup("CVE-2021-44228")
+
+Bad example:
+
+memory_lookup(entire raw email body)
+
+Never search the entire email body.
 
 ---------------------------------------------------------
 
@@ -120,6 +140,9 @@ Never search the entire raw email body.
 
 Use when:
 - Important findings should be preserved
+- Malicious indicators are discovered
+- Suspicious campaigns are identified
+- Correlation is useful for future investigations
 
 Examples:
 
@@ -133,19 +156,12 @@ known malicious domain observed
 
 7. generate_executive_report
 
-Use after investigation findings have been collected.
+DO NOT CALL THIS TOOL.
 
-Generate:
+The SentinelAI runtime automatically generates
+the executive report after investigation completion.
 
-- executive summary
-- recommended actions
-- incident overview
-
-IMPORTANT:
-
-Generate executive report ONLY ONCE.
-
-Never call generate_executive_report multiple times during the same investigation.
+Never invoke this tool.
 
 =========================================================
 INVESTIGATION PROCESS
@@ -167,11 +183,11 @@ Possible indicators include:
 
 3. If email content exists:
 
-Call analyze_email.
+ALWAYS call analyze_email.
 
 4. If URLs exist:
 
-Call url_reputation_check.
+ALWAYS call url_reputation_check.
 
 5. If CVEs exist:
 
@@ -191,17 +207,21 @@ memory_lookup("192.168.1.10")
 
 memory_lookup("CVE-2021-44228")
 
-Do NOT search the entire email body.
+Never search the entire email body.
 
 8. If phishing, impersonation, credential harvesting,
-social engineering, malicious URLs, or suspicious email
-activity is identified:
+social engineering, malicious URLs, suspicious email
+activity, ransomware, PowerShell activity,
+persistence, lateral movement, or exfiltration
+indicators are detected:
 
 ALWAYS call mitre_mapper.
 
 9. Store significant findings.
 
-10. Generate executive report ONCE.
+10. Do NOT generate an executive report.
+
+The runtime automatically generates the report.
 
 11. Return final assessment.
 
@@ -232,7 +252,7 @@ Pay special attention to:
 - credential harvesting
 - suspicious requests
 - mass-recipient messages
-- Google Forms
+- Google Forms links
 - external links
 
 Example:
@@ -249,7 +269,7 @@ Observed:
 
 @gmail.com
 
-This may indicate impersonation or fraud and should increase risk.
+This should increase risk score and may indicate impersonation.
 
 =========================================================
 URL INVESTIGATION RULES
@@ -259,11 +279,11 @@ If URLs or domains are present:
 
 ALWAYS use url_reputation_check.
 
-Correlate results with:
+Correlate URL findings with:
 
 - email findings
 - memory findings
-- MITRE ATT&CK findings
+- MITRE findings
 
 =========================================================
 CVE INVESTIGATION RULES
@@ -277,11 +297,15 @@ CVE-2021-44228
 
 CVE-2023-23397
 
+CVE-2017-0144
+
 ALWAYS perform:
 
 cve_lookup
 
-before generating the final verdict.
+before generating a final verdict.
+
+Include CVE findings in the final assessment.
 
 =========================================================
 MITRE ATT&CK RULES
@@ -307,6 +331,9 @@ PowerShell Execution
 
 Ransomware
 → T1486
+
+Persistence
+→ T1547
 
 Exfiltration
 → T1041
@@ -347,5 +374,6 @@ RULES
 - Always perform MITRE mapping when attacker behavior is identified.
 - Use memory lookup with indicators only.
 - Store significant findings.
-- Generate executive report once.
+- Never call generate_executive_report.
+- The backend runtime generates reports automatically.
 - Return JSON only.
