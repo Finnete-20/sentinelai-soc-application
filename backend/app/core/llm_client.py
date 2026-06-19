@@ -81,12 +81,18 @@ def run_llm(
         *messages
     ]
 
-    return client.chat.completions.create(
-        model=model,
-        messages=full_messages,
-        tools=tools,
-        temperature=0.2,
-        response_format={
+    request = {
+        "model": model,
+        "messages": full_messages,
+        "temperature": 0.2,
+        "response_format": {
             "type": "json_object"
         }
+    }
+
+    if tools:
+        request["tools"] = tools
+
+    return client.chat.completions.create(
+        **request
     )

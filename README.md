@@ -6,6 +6,8 @@ SentinelAI is an AI-powered Security Operations Center (SOC) analyst that autono
 
 The system is designed to emulate Tier 2 / Tier 3 SOC analyst workflows by allowing the model to make investigation decisions, call tools autonomously, gather evidence, correlate findings, and produce executive-level reports.
 
+This project was developed as a capstone project for Generative AI Systems and combines concepts from prompt engineering, grounding, agentic workflows, MCP tools, deployment, and evaluation into a single production-ready application.
+
 ---
 
 # Live Application
@@ -24,28 +26,36 @@ https://sentinelai-backend-w5bu.onrender.com
 
 Security analysts spend significant time investigating alerts, phishing emails, suspicious URLs, vulnerabilities, and threat intelligence indicators.
 
-Many organizations lack the resources to perform consistent investigations across every alert.
+Many organizations lack the resources to perform consistent investigations across every alert. Analysts often need to manually collect information from multiple systems before making a decision.
 
 SentinelAI helps automate this process by:
 
-- Investigating security incidents
-- Correlating evidence
-- Querying threat intelligence
-- Looking up vulnerabilities
-- Mapping MITRE ATT&CK techniques
-- Generating executive reports
+* Investigating security incidents
+* Correlating evidence
+* Querying threat intelligence
+* Looking up vulnerabilities
+* Mapping MITRE ATT&CK techniques
+* Generating executive reports
 
-The goal is to reduce analyst workload while improving investigation consistency.
+The goal is to reduce analyst workload while improving investigation consistency and providing transparent reasoning.
+
+---
+
+# Why I Built SentinelAI
+
+Security investigations often require analysts to gather information from multiple sources before making decisions. SentinelAI was designed to mimic that process by allowing the model to collect evidence, call tools, analyze findings, and generate conclusions autonomously.
+
+The project also allowed me to combine cybersecurity concepts with modern AI engineering techniques including prompt engineering, MCP tools, grounding, evaluation, and deployment.
 
 ---
 
 # Target Users
 
-- Security Operations Centers (SOC)
-- Security Analysts
-- Cybersecurity Students
-- Incident Response Teams
-- Threat Intelligence Analysts
+* Security Operations Centers (SOC)
+* Security Analysts
+* Cybersecurity Students
+* Incident Response Teams
+* Threat Intelligence Analysts
 
 ---
 
@@ -55,7 +65,7 @@ The goal is to reduce analyst workload while improving investigation consistency
 User Input
       │
       ▼
- GPT-4.1-mini
+ GPT-4o-mini
       │
       ▼
  MCP Tool Selection
@@ -75,7 +85,7 @@ User Input
  Grounded Evidence
       │
       ▼
- GPT-4.1-mini Reasoning
+ GPT-4o-mini Reasoning
       │
       ▼
  Executive Report
@@ -90,29 +100,31 @@ User Input
 
 ## Frontend
 
-- React
-- Vite
-- JavaScript
-- Vercel
+* React
+* Vite
+* JavaScript
+* Vercel
 
 ## Backend
 
-- FastAPI
-- Python
-- OpenAI API
+* FastAPI
+* Python
+* OpenAI API
 
 ## Threat Intelligence
 
-- VirusTotal API
-- NVD API
+* VirusTotal API
+* National Vulnerability Database (NVD)
 
 ## Security Knowledge
 
-- MITRE ATT&CK
+* MITRE ATT&CK
 
 ---
 
 # MCP Tools
+
+A major project requirement was implementing MCP tools that are exposed to the model through the tools parameter and selected autonomously during investigations.
 
 ## analyze_email
 
@@ -122,11 +134,11 @@ Extract indicators from email content.
 
 Returns:
 
-- Email addresses
-- URLs
-- Domains
-- CVEs
-- IP addresses
+* Email addresses
+* URLs
+* Domains
+* CVEs
+* IP addresses
 
 ---
 
@@ -138,10 +150,10 @@ Query VirusTotal for URL reputation.
 
 Returns:
 
-- Reputation information
-- Analysis statistics
-- Categories
-- Threat intelligence
+* Reputation information
+* Analysis statistics
+* Categories
+* Threat intelligence
 
 ---
 
@@ -153,10 +165,10 @@ Retrieve live vulnerability intelligence from the National Vulnerability Databas
 
 Returns:
 
-- CVSS score
-- Severity
-- Description
-- Vulnerability details
+* CVSS score
+* Severity
+* Description
+* Vulnerability details
 
 ---
 
@@ -168,8 +180,8 @@ Search previous investigations.
 
 Returns:
 
-- Historical findings
-- Prior investigations
+* Historical findings
+* Prior investigations
 
 ---
 
@@ -181,7 +193,7 @@ Persist investigation findings for future correlation.
 
 Returns:
 
-- Stored record confirmation
+* Stored record confirmation
 
 ---
 
@@ -193,9 +205,9 @@ Provide MITRE ATT&CK reference knowledge.
 
 Returns:
 
-- Techniques
-- Tactics
-- Detection recommendations
+* Techniques
+* Tactics
+* Detection recommendations
 
 ---
 
@@ -207,8 +219,8 @@ Generate executive-level summaries.
 
 Returns:
 
-- Executive summary
-- Analyst notes
+* Executive summary
+* Analyst notes
 
 ---
 
@@ -218,22 +230,25 @@ The model is responsible for investigation decisions.
 
 The Python application does not decide:
 
-- Which tools to call
-- Whether a tool should be called
-- What verdict to assign
-- What risk score to assign
-- What investigation path to follow
+* Which tools to call
+* Whether a tool should be called
+* What verdict to assign
+* What risk score to assign
+* What investigation path to follow
 
 Instead:
 
 1. The model receives the incident.
 2. The model decides which MCP tools are needed.
 3. The model calls tools.
-4. The model receives tool results.
-5. The model decides whether more tools are required.
-6. The model produces the final investigation result.
+4. The application executes the tool.
+5. The model receives tool results.
+6. The model decides whether additional investigation is required.
+7. The model produces the final investigation result.
 
 This satisfies the project's definition of agentic behavior because the model, not Python, drives decision-making.
+
+If the model were removed and replaced with static logic, the system would not behave the same way.
 
 ---
 
@@ -245,7 +260,7 @@ SentinelAI is grounded through multiple external sources.
 
 Provides live threat intelligence for URLs.
 
-## NVD
+## National Vulnerability Database (NVD)
 
 Provides live CVE intelligence and vulnerability data.
 
@@ -257,7 +272,7 @@ Provides attacker technique knowledge.
 
 Provides historical investigation context.
 
-These sources give the model access to information not available through pretraining alone.
+These sources give the model access to information not available through pretraining alone and allow decisions to be based on current evidence.
 
 ---
 
@@ -289,92 +304,138 @@ Output:
 {
   "verdict": "malicious",
   "confidence": 0.85,
-  "incident_type": "Phishing Attempt"
+  "incident_type": "phishing_attempt"
 }
 ```
 
 ---
 
-# Evaluation
+# Example CVE Investigation
 
-Evaluation
+Input:
+
+```text
+Analyze CVE-2021-44228
+```
+
+Investigation Process:
+
+1. Model detects a CVE reference.
+2. Model calls cve_lookup.
+3. Live NVD intelligence is retrieved.
+4. Model evaluates severity and vulnerability details.
+5. Model generates final assessment.
+
+Output:
+
+```json
+{
+  "verdict": "critical",
+  "risk_score": 95,
+  "incident_type": "critical_vulnerability"
+}
+```
+
+This example was particularly important because instructor feedback identified an earlier issue where critical vulnerabilities could be underestimated. The final version correctly identifies Log4Shell as a critical vulnerability and includes supporting evidence in the investigation output.
+
+---
+
+# Evaluation
 
 Evaluation was performed using a dataset of 55 cybersecurity investigation samples located in:
 
+```text
 evaluation/eval_dataset.json
+```
 
 The evaluation can be reproduced by running:
 
+```bash
 python evaluation/eval.py
+```
 
 Metrics:
 
+```json
 {
-  "accuracy": 0.764,
-  "precision": 0.929,
-  "recall": 0.520,
-  "f1": 0.667
+  "accuracy": 0.745,
+  "precision": 0.923,
+  "recall": 0.480,
+  "f1": 0.632
 }
+```
 
 Results:
 
-- Accuracy: 76.4%
-- Precision: 92.9%
-- Recall: 52.0%
-- F1 Score: 66.7%
+* Accuracy: 74.5%
+* Precision: 92.3%
+* Recall: 48.0%
+* F1 Score: 63.2%
 
 Interpretation:
 
-- High precision indicates that incidents classified as malicious are usually correct.
-- Low false-positive rates help reduce analyst fatigue.
-- Recall remains an area for future improvement.
+* High precision indicates that incidents classified as malicious are usually correct.
+* Low false-positive rates help reduce analyst fatigue.
+* The evaluation process helped identify edge cases and guided several improvements throughout development.
 
-How to Test SentinelAI
-
-1. Open the deployed application.
-2. Submit a phishing email, suspicious URL, or CVE identifier.
-3. Observe the investigation timeline and tool calls.
-4. Verify that the model autonomously selects MCP tools and produces a final investigation report.
-
-Example test input:
-
-GVSU Enrollment Form!
-
-Michael Brown <williamsmithn800@gmail.com>
-
-https://forms.gle/r1yZEXiJ1ms6Rsw58
-
-Expected behavior:
-
-- Model calls analyze_email
-- Model calls url_reputation_check
-- Model may call memory_lookup
-- Model may call mitre_mapper
-- Model generates an executive report
-- Model produces a final verdict based on collected evidence
-
-The complete evaluation framework, dataset, and generated results are included in the repository under the evaluation folder.
+One of the most valuable outcomes of evaluation was discovering situations where the system retrieved correct information but produced incorrect conclusions. These findings directly influenced later improvements to investigation logic and vulnerability handling.
 
 ---
 
-# Known Limitations
+# How to Test SentinelAI
 
-- Recall can be improved on certain phishing scenarios
-- Memory storage is local
-- Limited enterprise integrations
-- MITRE knowledge is reference-based
+## Test 1 – Critical Vulnerability
+
+Input:
+
+```text
+Analyze CVE-2021-44228
+```
+
+Expected:
+
+* cve_lookup tool called
+* NVD data retrieved
+* Critical vulnerability identified
+* Risk score approximately 95
 
 ---
 
-# Future Work
+## Test 2 – Suspicious URL
 
-- Splunk integration
-- CrowdStrike integration
-- Microsoft Defender integration
-- Enterprise memory storage
-- Expanded evaluation datasets
-- Additional threat intelligence feeds
-- Analyst feedback learning loops
+Input:
+
+```text
+Investigate this URL: https://malicious-example.com
+```
+
+Expected:
+
+* url_reputation_check tool called
+* VirusTotal data retrieved
+* Threat intelligence analyzed
+* Final verdict generated
+
+---
+
+## Test 3 – Benign Email
+
+Input:
+
+```text
+Hello team,
+
+Please review the attached agenda for tomorrow's meeting.
+
+Regards,
+Finnete
+```
+
+Expected:
+
+* analyze_email tool called
+* No malicious indicators found
+* Safe verdict returned
 
 ---
 
@@ -385,8 +446,8 @@ backend/
 ├── app/
 │   ├── api/
 │   ├── core/
-│   ├── tools/
 │   ├── prompts/
+│   ├── tools/
 │   └── reports/
 │
 ├── evaluation/
@@ -406,7 +467,7 @@ frontend/
 
 # Build Log
 
-A detailed development history, iterations, evaluation process and architectural changes can be found in:
+A detailed development history, prompt iterations, architectural decisions, evaluation process, deployment challenges, and lessons learned can be found in:
 
 ```text
 BUILD_LOG.md
@@ -418,7 +479,7 @@ BUILD_LOG.md
 
 **Finnete George**
 
-Master's Student in Cybersecurity
+Master of Science in Cybersecurity
 
 Grand Valley State University
 
