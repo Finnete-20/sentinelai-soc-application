@@ -529,9 +529,11 @@ Another lesson came from evaluation. One of the most surprising findings was tha
 
 Deployment was also more challenging than expected. I spent significant time resolving environment variable issues, API connectivity problems, frontend-backend communication issues, and Render deployment failures. Those challenges helped me better understand what it takes to move an AI project from a local prototype into a system that real users can access.
 
-If I had more time, I would expand the threat intelligence integrations, improve confidence calibration, add additional analyst workflows, and build a larger benchmark dataset containing several hundred investigation scenarios.
+Next time, I will expand the threat intelligence integrations, improve confidence calibration, add additional analyst workflows, and build a larger benchmark dataset containing several hundred investigation scenarios.
 
 This project taught me how prompt engineering, grounding, MCP tools, agentic architectures, evaluation, and deployment all work together in a real AI system.
+
+
 ---
 
 # Author
