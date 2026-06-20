@@ -342,7 +342,9 @@ This example was particularly important because instructor feedback identified a
 
 # Evaluation
 
-Evaluation was performed using a dataset of 55 cybersecurity investigation samples located in:
+Evaluation was performed using a dataset of 55 cybersecurity investigation scenarios covering phishing emails, suspicious URLs, benign URLs, CVE investigations, and threat intelligence workflows.
+
+The evaluation dataset is located in:
 
 ```text
 evaluation/eval_dataset.json
@@ -354,31 +356,74 @@ The evaluation can be reproduced by running:
 python evaluation/eval.py
 ```
 
-Metrics:
+Final Results:
 
 ```json
 {
-  "accuracy": 0.745,
-  "precision": 0.923,
-  "recall": 0.480,
-  "f1": 0.632
+  "accuracy": 0.982,
+  "precision": 0.962,
+  "recall": 1.0,
+  "f1": 0.98,
+  "tp": 25,
+  "fp": 1,
+  "tn": 29,
+  "fn": 0
 }
 ```
 
-Results:
+Results Summary:
 
-* Accuracy: 74.5%
-* Precision: 92.3%
-* Recall: 48.0%
-* F1 Score: 63.2%
+* Accuracy: 98.2%
+* Precision: 96.2%
+* Recall: 100%
+* F1 Score: 98.0%
+* True Positives: 25
+* True Negatives: 29
+* False Positives: 1
+* False Negatives: 0
 
-Interpretation:
+These results were especially important because SentinelAI is designed to support cybersecurity investigations. Eliminating false negatives became a major goal because missing a real threat is generally more costly than investigating an additional alert.
 
-* High precision indicates that incidents classified as malicious are usually correct.
-* Low false-positive rates help reduce analyst fatigue.
-* The evaluation process helped identify edge cases and guided several improvements throughout development.
+One of the most valuable outcomes of the evaluation process was discovering situations where the system retrieved correct information but produced incorrect conclusions. Structured testing helped uncover weaknesses that would have been easy to miss through casual testing and directly influenced improvements made throughout development.
 
-One of the most valuable outcomes of evaluation was discovering situations where the system retrieved correct information but produced incorrect conclusions. These findings directly influenced later improvements to investigation logic and vulnerability handling.
+The final evaluation demonstrates that SentinelAI can accurately investigate cybersecurity incidents while maintaining strong precision and recall across multiple investigation types.
+
+---
+
+# Changes Made After Draft Feedback
+
+The most important feedback I received involved CVE-2021-44228 (Log4Shell).
+
+During instructor testing, SentinelAI successfully retrieved vulnerability information from the National Vulnerability Database, but the final assessment incorrectly classified the vulnerability as safe because the reasoning process focused too heavily on active exploitation evidence rather than vulnerability severity.
+
+This was one of the most valuable discoveries during the project because it demonstrated that retrieving correct information does not automatically guarantee a correct conclusion.
+
+To address this issue I:
+
+* Improved vulnerability reasoning logic
+* Incorporated CVSS severity into final assessments
+* Added additional testing using critical vulnerabilities
+* Improved investigation outputs to better reflect vulnerability risk
+* Added fallback behavior when external vulnerability services are temporarily unavailable
+
+The final version correctly identifies Log4Shell as a critical vulnerability with a risk score of 95 and supporting MITRE ATT&CK evidence.
+
+Example output:
+
+```json
+{
+  "verdict": "critical",
+  "confidence": 0.9,
+  "risk_score": 95,
+  "incident_type": "critical_vulnerability"
+}
+```
+
+This change significantly improved overall evaluation performance and eliminated false negatives within the evaluation dataset.
+
+I also expanded the documentation to better explain architectural decisions, evaluation methodology, deployment challenges, and lessons learned throughout development.
+
+
 
 ---
 
@@ -473,6 +518,20 @@ A detailed development history, prompt iterations, architectural decisions, eval
 BUILD_LOG.md
 ```
 
+---
+# Lessons Learned
+
+The biggest lesson from this project was that building an AI application is not just about prompting a model.
+
+The most difficult part of the project was learning the difference between a system that uses an LLM and a system that is truly agentic. Early versions of SentinelAI worked, but many important decisions were still controlled by Python code. Refactoring the architecture so that the model made investigation decisions fundamentally changed how the system behaved and brought the project in line with the goals of the assignment.
+
+Another lesson came from evaluation. One of the most surprising findings was that SentinelAI could retrieve completely correct vulnerability information and still reach the wrong conclusion. The Log4Shell issue demonstrated that accurate retrieval and accurate reasoning are not the same thing. Without structured testing, I might never have discovered that problem.
+
+Deployment was also more challenging than expected. I spent significant time resolving environment variable issues, API connectivity problems, frontend-backend communication issues, and Render deployment failures. Those challenges helped me better understand what it takes to move an AI project from a local prototype into a system that real users can access.
+
+If I had more time, I would expand the threat intelligence integrations, improve confidence calibration, add additional analyst workflows, and build a larger benchmark dataset containing several hundred investigation scenarios.
+
+This project taught me how prompt engineering, grounding, MCP tools, agentic architectures, evaluation, and deployment all work together in a real AI system.
 ---
 
 # Author
