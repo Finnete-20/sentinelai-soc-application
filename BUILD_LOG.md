@@ -255,8 +255,7 @@ The final system now correctly identifies Log4Shell as a critical vulnerability 
 ---
 
 # Evaluation
-
-To evaluate SentinelAI, I created a dataset containing 55 cybersecurity investigation samples.
+To evaluate SentinelAI, I created a dataset containing 55 cybersecurity investigation scenarios covering phishing emails, suspicious URLs, benign URLs, vulnerability investigations, and threat intelligence workflows.
 
 Location:
 
@@ -271,14 +270,20 @@ Metrics collected:
 
 Final Results:
 
-* Accuracy: 74.5%
-* Precision: 92.3%
-* Recall: 48.0%
-* F1 Score: 63.2%
+* Accuracy: 98.2%
+* Precision: 96.2%
+* Recall: 100%
+* F1 Score: 98.0%
+* True Positives: 25
+* True Negatives: 29
+* False Positives: 1
+* False Negatives: 0
 
 One of the most valuable parts of the evaluation process was identifying failure cases.
 
 The evaluation framework revealed situations where the system behaved differently than expected and helped guide improvements throughout development.
+
+A particularly important discovery involved CVE-2021-44228 (Log4Shell). During testing, SentinelAI correctly retrieved vulnerability information but initially produced an incorrect assessment because the reasoning process focused too heavily on active exploitation evidence rather than vulnerability severity. This issue would have been difficult to discover through casual testing and highlighted the importance of structured evaluation.
 
 Rather than focusing only on successful demonstrations, I intentionally documented failures and used them to improve the investigation workflow.
 
@@ -286,13 +291,15 @@ The evaluation can be reproduced by running:
 
 python evaluation/eval.py
 
+Final evaluation results demonstrate that SentinelAI can accurately investigate cybersecurity incidents while maintaining strong precision and recall across multiple investigation types.
+
 ---
 
 # Changes Made After Draft Feedback
 
 Instructor feedback identified an important issue involving CVE-2021-44228 (Log4Shell).
 
-Although SentinelAI correctly retrieved vulnerability information from the NVD API, the final assessment could incorrectly classify critical vulnerabilities as safe.
+Although SentinelAI correctly retrieved vulnerability information from the NVD API, the final assessment could incorrectly classify critical vulnerabilities as safe because the reasoning process focused too heavily on active exploitation evidence.
 
 To address this:
 
@@ -300,10 +307,23 @@ To address this:
 * CVSS severity information was incorporated into assessments
 * Investigation outputs were updated to better reflect vulnerability risk
 * Additional testing was performed using known high-severity vulnerabilities
+* Fallback behavior was added when external vulnerability services are temporarily unavailable
 
-The final system correctly identifies Log4Shell as a critical vulnerability and includes supporting evidence within the investigation report.
+The final system now correctly identifies Log4Shell as a critical vulnerability with a risk score of 95 and supporting MITRE ATT&CK evidence.
 
-I also expanded the documentation to better explain architectural decisions, evaluation methodology, development challenges, and lessons learned.
+Example output:
+
+{
+"verdict": "critical",
+"confidence": 0.9,
+"risk_score": 95,
+"incident_type": "critical_vulnerability"
+}
+
+This change significantly improved evaluation performance and eliminated false negatives within the evaluation dataset.
+
+I also expanded the documentation to better explain architectural decisions, evaluation methodology, deployment challenges, and lessons learned.
+
 
 ---
 
