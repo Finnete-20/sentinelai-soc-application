@@ -1,199 +1,138 @@
 import { useState } from "react";
 import { investigate } from "../api/client";
+import "./Investigator.css";
 
 export default function Investigator() {
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
 
-    const [input, setInput] = useState("");
+  async function handleSubmit() {
+    if (!input.trim()) return;
 
-    const [loading, setLoading] =
-        useState(false);
+    setLoading(true);
 
-    const [result, setResult] =
-        useState(null);
+    const response = await investigate(input);
 
-    async function handleSubmit() {
+    setResult(response);
 
-        if (!input.trim()) return;
+    setLoading(false);
+  }
 
-        setLoading(true);
+  const verdictClass =
+    result?.data?.verdict?.toLowerCase() || "";
 
-        const response =
-            await investigate(input);
+  return (
+    <div className="page">
 
-        setResult(response);
+      <div className="header">
+        <h1>🛡 SentinelAI SOC Analyst</h1>
 
-        setLoading(false);
-    }
+        <p className="subtitle">
+          Autonomous Security Investigation Platform
+        </p>
+      </div>
 
-    return (
-        <div
-            style={{
-                maxWidth: "1100px",
-                margin: "0 auto",
-                padding: "30px",
-                fontFamily: "Arial"
-            }}
-        >
-            <h1>
-                SentinelAI SOC Analyst
-            </h1>
-
-            <p>
-                Autonomous Security Investigation Platform
-            </p>
-
-            <textarea
-                rows={6}
-                value={input}
-                onChange={(e) =>
-                    setInput(e.target.value)
-                }
-                placeholder="
-Investigate phishing URL http://secure-login-verification.com
-
-or
+      <textarea
+        className="input-box"
+        rows={6}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder={`Investigate phishing URL http://secure-login-verification.com
 
 Analyze CVE-2021-44228
 
-or
+Review this suspicious email...`}
+      />
 
-Review this suspicious email...
-"
-                style={{
-                    width: "100%",
-                    padding: "12px"
-                }}
-            />
+      <button
+        className="button"
+        onClick={handleSubmit}
+        disabled={loading}
+      >
+        {loading ? "🔍 Investigating..." : "Investigate"}
+      </button>
 
-            <button
-                onClick={handleSubmit}
-                disabled={loading}
-                style={{
-                    marginTop: "10px",
-                    padding: "10px 20px"
-                }}
-            >
-                {loading
-                    ? "Investigating..."
-                    : "Investigate"}
-            </button>
+      {result?.success && (
+        <div className="results">
 
-            {result?.success && (
+          <h2>Investigation Result</h2>
 
-                <div
-                    style={{
-                        marginTop: "30px"
-                    }}
-                >
+          <div className="metrics">
 
-                    <h2>
-                        Investigation Result
-                    </h2>
+            <div className="card">
+              <div className="card-title">VERDICT</div>
+              <div className={`card-value ${verdictClass}`}>
+                {result.data.verdict.toUpperCase()}
+              </div>
+            </div>
 
-                    <div>
+            <div className="card">
+              <div className="card-title">RISK SCORE</div>
+              <div className="card-value">
+                {result.data.risk_score}
+              </div>
+            </div>
 
-                        <h3>
-                            Verdict:
-                            {" "}
-                            {result.data.verdict}
-                        </h3>
+            <div className="card">
+              <div className="card-title">CONFIDENCE</div>
+              <div className="card-value">
+                {result.data.confidence}
+              </div>
+            </div>
 
-                        <p>
-                            Risk Score:
-                            {" "}
-                            {result.data.risk_score}
-                        </p>
+            <div className="card">
+              <div className="card-title">INCIDENT TYPE</div>
+              <div className="card-value">
+                {result.data.incident_type}
+              </div>
+            </div>
 
-                        <p>
-                            Confidence:
-                            {" "}
-                            {result.data.confidence}
-                        </p>
+          </div>
 
-                        <p>
-                            Incident Type:
-                            {" "}
-                            {result.data.incident_type}
-                        </p>
+          <div className="section">
+            <h3>Reason</h3>
+            <p>{result.data.reason}</p>
+          </div>
 
-                        <p>
-                            Reason:
-                            {" "}
-                            {result.data.reason}
-                        </p>
+          <div className="section">
+            <h3>Executive Summary</h3>
+            <p>{result.data.executive_summary}</p>
+          </div>
 
-                    </div>
+          <div className="section">
+            <h3>MITRE ATT&CK Findings</h3>
 
-                    <hr />
+            <pre>
+              {JSON.stringify(
+                result.data.mitre_findings,
+                null,
+                2
+              )}
+            </pre>
+          </div>
 
-                    <h3>
-                        Executive Summary
-                    </h3>
+          <div className="section">
+            <h3>Investigation Timeline</h3>
 
-                    <p>
-                        {
-                            result.data
-                                .executive_summary
-                        }
-                    </p>
-
-                    <hr />
-
-                    <h3>
-                        MITRE ATT&CK Findings
-                    </h3>
-
-                    <pre>
-                        {
-                            JSON.stringify(
-                                result.data
-                                    .mitre_findings,
-                                null,
-                                2
-                            )
-                        }
-                    </pre>
-
-                    <hr />
-
-                    <h3>
-                        Investigation Timeline
-                    </h3>
-
-                    <pre
-                        style={{
-                            background: "#111",
-                            color: "#0f0",
-                            padding: "15px",
-                            overflowX: "auto"
-                        }}
-                    >
-                        {
-                            JSON.stringify(
-                                result.data
-                                    .investigation_log,
-                                null,
-                                2
-                            )
-                        }
-                    </pre>
-
-                </div>
-            )}
-
-            {
-                result?.success === false &&
-                (
-                    <p
-                        style={{
-                            color: "red"
-                        }}
-                    >
-                        {result.error}
-                    </p>
-                )
-            }
+            <pre className="timeline">
+              {JSON.stringify(
+                result.data.investigation_log,
+                null,
+                2
+              )}
+            </pre>
+          </div>
 
         </div>
-    );
+      )}
+
+      {result?.success === false && (
+        <p className="error">
+          {result.error}
+        </p>
+      )}
+
+    </div>
+  );
 }

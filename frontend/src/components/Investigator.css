@@ -1,0 +1,112 @@
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 30px;
+  color: #f3f4f6;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  color: #60a5fa;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  color: #9ca3af;
+}
+
+.input-box {
+  width: 100%;
+  min-height: 180px;
+  padding: 16px;
+  background: #111827;
+  border: 1px solid #374151;
+  color: white;
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.button {
+  margin-top: 15px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.button:hover {
+  background: #1d4ed8;
+}
+
+.results {
+  margin-top: 30px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.card {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.card-title {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.card-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.safe {
+  color: #10b981;
+}
+
+.suspicious {
+  color: #f59e0b;
+}
+
+.malicious {
+  color: #ef4444;
+}
+
+.critical {
+  color: #dc2626;
+}
+
+.section {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.timeline {
+  background: #0f172a;
+  color: #22c55e;
+  padding: 15px;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.error {
+  color: #ef4444;
+  margin-top: 15px;
+}
