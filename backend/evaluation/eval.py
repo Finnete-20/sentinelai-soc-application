@@ -2,6 +2,13 @@ import json
 import os
 import sys
 
+# Fix Windows UTF-8 output when redirecting to files
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 BACKEND_DIR = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
@@ -45,6 +52,24 @@ def predict(sample):
         )
     ).lower()
 
+    print("\n" + "=" * 80)
+    print("INPUT:")
+    print(sample["input"])
+
+    print("\nEXPECTED:")
+    print(sample["expected"])
+
+    print("\nRAW RESULT:")
+    print(
+        json.dumps(
+            result,
+            indent=2,
+            ensure_ascii=False
+        )
+    )
+
+    print("=" * 80)
+
     if verdict not in [
         "safe",
         "suspicious",
@@ -62,7 +87,7 @@ def run_evaluation():
     tp = fp = tn = fn = 0
 
     print(
-        f"\n🚀 Starting SentinelAI Evaluation ({len(dataset)} samples)\n"
+        f"\nStarting SentinelAI Evaluation ({len(dataset)} samples)\n"
     )
 
     for sample in dataset:
@@ -79,15 +104,17 @@ def run_evaluation():
             ]:
 
                 tp += 1
+
                 print(
-                    f"✅ malicious → {predicted}"
+                    f"[PASS] malicious -> {predicted}"
                 )
 
             else:
 
                 fn += 1
+
                 print(
-                    f"❌ malicious → {predicted}"
+                    f"[FAIL] malicious -> {predicted}"
                 )
 
         else:
@@ -95,15 +122,17 @@ def run_evaluation():
             if predicted == "safe":
 
                 tn += 1
+
                 print(
-                    "✅ safe → safe"
+                    "[PASS] safe -> safe"
                 )
 
             else:
 
                 fp += 1
+
                 print(
-                    f"❌ safe → {predicted}"
+                    f"[FAIL] safe -> {predicted}"
                 )
 
     total = len(dataset)
@@ -156,7 +185,7 @@ def run_evaluation():
         "fn": fn
     }
 
-    print("\n📊 FINAL REPORT\n")
+    print("\nFINAL REPORT\n")
 
     print(
         json.dumps(
@@ -164,6 +193,18 @@ def run_evaluation():
             indent=2
         )
     )
+
+    with open(
+        "report.json",
+        "w",
+        encoding="utf-8"
+    ) as f:
+
+        json.dump(
+            report,
+            f,
+            indent=2
+        )
 
 
 if __name__ == "__main__":
