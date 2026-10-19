@@ -40,3 +40,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local backups and generated evaluation output
+*.bak
+backend/eval_results.txt
