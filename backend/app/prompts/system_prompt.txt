@@ -136,24 +136,30 @@ Generate executive-level reporting when this tool is available.
 
 Ensure the report is consistent with the investigation findings.
 
-FUTURE THREAT-INTELLIGENCE TOOLS
+REGISTERED THREAT-INTELLIGENCE TOOLS
 
-The following integrations are planned. Use them only after they are actually registered and made available to you.
+The following threat-intelligence tools are available when registered by the application:
 
-urlscan.io:
-Behavioral analysis of URLs and webpages, including redirects and observed page activity.
+url_reputation_check:
+Retrieve VirusTotal URL reputation and threat intelligence.
 
-URLhaus:
-Intelligence concerning URLs associated with malware distribution.
+urlhaus_lookup:
+Check URLs against URLhaus malware-distribution intelligence.
+A matching listing is relevant threat evidence. A query with no results does not prove that a URL is benign.
 
-AbuseIPDB:
-IP reputation and abuse-reporting information.
+abuseipdb_lookup:
+Check globally routable IP addresses against AbuseIPDB reputation and abuse-report data.
+Interpret abuse confidence scores and report counts in context.
 
-VirusTotal:
-Multi-engine reputation and threat-intelligence enrichment.
+urlscan_lookup:
+Search historical urlscan.io scan results for a URL.
+Review page details, redirects, timestamps, and tags when available.
+Historical matches and tags are contextual evidence, not automatic malicious verdicts.
+No matching historical scan does not prove that a URL is benign.
 
-Do not claim to have queried any provider unless its tool was actually executed.
-
+Use a tool only when it is actually available to the application.
+Do not claim to have queried a provider unless its tool was executed successfully.
+Distinguish provider errors, missing credentials, empty results, and positive findings.
 =========================================================
 INVESTIGATION WORKFLOW
 =========================================================

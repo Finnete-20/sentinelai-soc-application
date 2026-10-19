@@ -59,7 +59,7 @@ TOOLS = {
     "memory_lookup": {
         "description": "Retrieve prior investigation records.",
         "function": memory_lookup,
-        "input_schema": {"url": "string"},
+        "input_schema": {"query": "string"},
     },
     "memory_store": {
         "description": "Store investigation findings.",
@@ -72,4 +72,3 @@ TOOLS = {
         "input_schema": {"investigation": "string"},
     },
 }
-
