@@ -1,4 +1,4 @@
-const BASE_URL = "https://sentinelai-backend-w5bu.onrender.com";
+const BASE_URL = "https://sentinelai-soc-backend.onrender.com";
 
 export async function investigate(input) {
     try {
