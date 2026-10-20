@@ -1,4 +1,5 @@
 
+import ipaddress
 import json
 import logging
 import math
@@ -49,13 +50,55 @@ def build_openai_tools():
     return openai_tools
 
 
+def validate_tool_arguments(tool_name, arguments):
+    """Validate tool arguments before executing a registered tool."""
+    if not isinstance(arguments, dict):
+        return False, "Tool arguments must be a JSON object."
+
+    if tool_name == "abuseipdb_lookup":
+        ip = arguments.get("ip")
+
+        if not isinstance(ip, str) or not ip.strip():
+            return False, "AbuseIPDB requires a valid IP address."
+
+        try:
+            parsed_ip = ipaddress.ip_address(ip.strip())
+        except ValueError:
+            return False, (
+                "AbuseIPDB lookup skipped: the supplied indicator "
+                "is not a valid IP address. A hostname cannot be "
+                "used in place of an IP address."
+            )
+
+        if not parsed_ip.is_global:
+            return False, (
+                "AbuseIPDB lookup skipped: the IP address is not "
+                "globally routable."
+            )
+
+    return True, None
+
+
 def execute_tool(tool_name, arguments):
-    """Execute a registered tool and preserve failures as structured data."""
+    """Execute a registered tool after validating its arguments."""
     if tool_name not in TOOLS:
         return {
             "error": f"Unknown tool: {tool_name}",
             "status": "error",
             "tool": tool_name,
+        }
+
+    valid, error_message = validate_tool_arguments(
+        tool_name,
+        arguments,
+    )
+
+    if not valid:
+        return {
+            "source": tool_name,
+            "error": error_message,
+            "status": "error",
+            "available": False,
         }
 
     try:
@@ -349,6 +392,7 @@ def validate_final_result(result, evidence):
         "investigation completed.",
         "assessment unavailable.",
     }
+
     if not reason_text or reason_text.casefold() in generic_reasons:
         warnings.append(
             "The rationale is missing or generic. Explain how the evidence "
