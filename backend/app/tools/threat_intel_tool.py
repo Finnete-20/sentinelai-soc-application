@@ -1,12 +1,18 @@
 
 import ipaddress
 import os
+import re
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from dotenv import load_dotenv
 
 try:
-    load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env"))
+    load_dotenv(
+        dotenv_path=os.path.join(
+            os.path.dirname(__file__), "..", "..", "..", ".env"
+        )
+    )
 except Exception:
     pass
 
@@ -26,19 +32,80 @@ def _error(source, message):
     }
 
 
+def normalize_url(value: str) -> str:
+    """
+    Normalize plain URLs and common Markdown links.
+
+    Examples:
+      [https://example.com](https://example.com)
+      https://example.com
+      "https://example.com"
+
+    This does not follow redirects or change HTTP to HTTPS.
+    """
+    if not isinstance(value, str):
+        return ""
+
+    value = value.strip()
+
+    # Remove surrounding quotes often introduced by model output.
+    if (
+        len(value) >= 2
+        and value[0] == value[-1]
+        and value[0] in {"'", '"', "`"}
+    ):
+        value = value[1:-1].strip()
+
+    # Convert Markdown links to their destination URL.
+    markdown_match = re.fullmatch(
+        r"\[([^\]]+)\]\((https?://[^)\s]+)\)",
+        value,
+        flags=re.IGNORECASE,
+    )
+    if markdown_match:
+        value = markdown_match.group(2).strip()
+
+    # Remove common trailing punctuation without changing URL components.
+    value = value.rstrip(".,;")
+
+    try:
+        parts = urlsplit(value)
+
+        if parts.scheme.lower() not in {"http", "https"}:
+            return ""
+
+        if not parts.hostname:
+            return ""
+
+        # Accessing .port validates malformed port values.
+        _ = parts.port
+
+        # Reject whitespace and control characters.
+        if any(char.isspace() or ord(char) < 32 for char in value):
+            return ""
+
+        return urlunsplit((
+            parts.scheme.lower(),
+            parts.netloc,
+            parts.path or "/",
+            parts.query,
+            parts.fragment,
+        ))
+
+    except (ValueError, TypeError):
+        return ""
+
+
 def urlhaus_lookup(url: str):
     """Look up a URL in URLhaus malware-distribution intelligence."""
-    url = (url or "").strip()
+    url = normalize_url(url)
     api_key = os.getenv("URLHAUS_AUTH_KEY")
 
     if not url:
-        return _error("urlhaus", "A URL is required.")
+        return _error("urlhaus", "A valid HTTP or HTTPS URL is required.")
 
     if not api_key:
-        return _error(
-            "urlhaus",
-            "URLHAUS_AUTH_KEY is not configured.",
-        )
+        return _error("urlhaus", "URLHAUS_AUTH_KEY is not configured.")
 
     try:
         response = requests.post(
@@ -76,14 +143,14 @@ def urlhaus_lookup(url: str):
             "date_added": payload.get("date_added"),
         }
 
-    except requests.RequestException as exc:
-        return _error("urlhaus", f"Request failed: {exc}")
-    except (ValueError, TypeError) as exc:
-        return _error("urlhaus", f"Invalid API response: {exc}")
+    except requests.RequestException:
+        return _error("urlhaus", "The URLhaus request failed.")
+    except (ValueError, TypeError):
+        return _error("urlhaus", "URLhaus returned an invalid API response.")
 
 
 def abuseipdb_lookup(ip: str):
-    """Check an IP address against AbuseIPDB abuse-report data."""
+    """Check a globally routable IP against AbuseIPDB."""
     ip = (ip or "").strip()
 
     if not ip:
@@ -102,10 +169,7 @@ def abuseipdb_lookup(ip: str):
 
     api_key = os.getenv("ABUSEIPDB_API_KEY")
     if not api_key:
-        return _error(
-            "abuseipdb",
-            "ABUSEIPDB_API_KEY is not configured.",
-        )
+        return _error("abuseipdb", "ABUSEIPDB_API_KEY is not configured.")
 
     try:
         response = requests.get(
@@ -115,7 +179,7 @@ def abuseipdb_lookup(ip: str):
                 "Accept": "application/json",
             },
             params={
-                "ipAddress": ip,
+                "ipAddress": str(parsed_ip),
                 "maxAgeInDays": 90,
             },
             timeout=15,
@@ -128,7 +192,7 @@ def abuseipdb_lookup(ip: str):
             "source": "abuseipdb",
             "status": "success",
             "available": True,
-            "indicator": ip,
+            "indicator": str(parsed_ip),
             "indicator_type": "ip",
             "abuse_confidence_score": data.get("abuseConfidenceScore"),
             "total_reports": data.get("totalReports"),
@@ -142,24 +206,20 @@ def abuseipdb_lookup(ip: str):
             ),
         }
 
-    except requests.RequestException as exc:
-        return _error("abuseipdb", f"Request failed: {exc}")
-    except (ValueError, TypeError) as exc:
-        return _error("abuseipdb", f"Invalid API response: {exc}")
+    except requests.RequestException:
+        return _error("abuseipdb", "The AbuseIPDB request failed.")
+    except (ValueError, TypeError):
+        return _error("abuseipdb", "AbuseIPDB returned an invalid API response.")
 
 
 def urlscan_lookup(url: str):
-    """Search historical urlscan.io results for a URL."""
-    url = (url or "").strip()
+    """Search historical urlscan.io results for a normalized URL."""
+    url = normalize_url(url)
 
     if not url:
-        return _error("urlscan", "A URL is required.")
+        return _error("urlscan", "A valid HTTP or HTTPS URL is required.")
 
-    # Escape backslashes and quotes in the Lucene query.
-    escaped_url = (
-        url.replace("\\", "\\\\")
-        .replace('"', '\\"')
-    )
+    escaped_url = url.replace("\\", "\\\\").replace('"', '\\"')
     query = f'page.url:"{escaped_url}"'
 
     headers = {"Accept": "application/json"}
@@ -182,16 +242,9 @@ def urlscan_lookup(url: str):
         summaries = []
 
         for item in results:
-            # urlscan.io search results store these objects at top level.
             page = item.get("page") or {}
             task = item.get("task") or {}
             stats = item.get("stats") or {}
-
-            # Search result URL points to the full scan result.
-            result_url = item.get("result")
-
-            # Keep tags as contextual evidence, not as a verdict.
-            tags = task.get("tags") or []
 
             summaries.append({
                 "scan_id": task.get("uuid"),
@@ -203,8 +256,8 @@ def urlscan_lookup(url: str):
                 "country": None,
                 "overall_malicious": None,
                 "overall_score": None,
-                "result_url": result_url,
-                "tags": tags,
+                "result_url": item.get("result"),
+                "tags": task.get("tags") or [],
                 "page_status": page.get("status"),
                 "redirected": page.get("redirected"),
                 "ip": page.get("ip"),
@@ -228,13 +281,13 @@ def urlscan_lookup(url: str):
             ),
             "note": (
                 "Historical results may refer to redirects or related URLs. "
-                "Tags are contextual signals and do not by themselves confirm "
+                "Tags are contextual signals and do not independently confirm "
                 "a malicious verdict. No matching scan does not establish "
                 "that a URL is benign."
             ),
         }
 
-    except requests.RequestException as exc:
-        return _error("urlscan", f"Request failed: {exc}")
-    except (ValueError, TypeError) as exc:
-        return _error("urlscan", f"Invalid API response: {exc}")
+    except requests.RequestException:
+        return _error("urlscan", "The urlscan.io request failed.")
+    except (ValueError, TypeError):
+        return _error("urlscan", "urlscan.io returned an invalid API response.")
