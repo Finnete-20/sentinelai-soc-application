@@ -149,7 +149,9 @@ def normalize_tool_evidence(tool_name, arguments, result):
 
     if failed:
         status = "error"
-        finding = str(result.get("error") or "Tool execution failed.")
+        finding = str(
+            result.get("error") or "Tool execution failed."
+        )
     else:
         status = "success"
         finding = (
@@ -235,7 +237,10 @@ def validate_final_result(result, evidence):
 
     verdict = result.get("verdict")
 
-    if not isinstance(verdict, str) or verdict.lower() not in VALID_VERDICTS:
+    if (
+        not isinstance(verdict, str)
+        or verdict.lower() not in VALID_VERDICTS
+    ):
         warnings.append("Verdict is missing or unsupported.")
         result["verdict"] = "suspicious"
         missing.append(
@@ -246,7 +251,9 @@ def validate_final_result(result, evidence):
         result["verdict"] = verdict.lower()
 
     if not is_valid_score(result.get("risk_score"), 0, 100):
-        warnings.append("Risk score must be numeric and between 0 and 100.")
+        warnings.append(
+            "Risk score must be numeric and between 0 and 100."
+        )
         result["risk_score"] = 50
         missing.append(
             "Risk score was invalid; 50 is a provisional placeholder, "
@@ -254,7 +261,9 @@ def validate_final_result(result, evidence):
         )
 
     if not is_valid_score(result.get("confidence"), 0, 1):
-        warnings.append("Confidence must be numeric and between 0 and 1.")
+        warnings.append(
+            "Confidence must be numeric and between 0 and 1."
+        )
         result["confidence"] = 0
         missing.append(
             "Confidence was invalid and has been set to zero."
@@ -270,7 +279,9 @@ def validate_final_result(result, evidence):
         value = result.get(field)
 
         if not isinstance(value, str) or not value.strip():
-            warnings.append(f"Required field '{field}' is missing or invalid.")
+            warnings.append(
+                f"Required field '{field}' is missing or invalid."
+            )
 
             if field == "reason":
                 result[field] = (
@@ -278,7 +289,10 @@ def validate_final_result(result, evidence):
                     "Analyst review is required."
                 )
             elif field == "executive_summary":
-                result[field] = result.get("reason", "Assessment unavailable.")
+                result[field] = result.get(
+                    "reason",
+                    "Assessment unavailable.",
+                )
             else:
                 result[field] = "unknown"
 
@@ -337,8 +351,8 @@ def validate_final_result(result, evidence):
             "has not been recorded."
         )
 
-    # Cross-check verdict, risk, confidence, rationale, and recorded evidence.
-    # These checks flag inconsistencies; they do not choose a verdict for the LLM.
+    # Cross-check verdict, risk, confidence, rationale, and evidence.
+    # These checks flag inconsistencies; they do not choose a verdict.
     risk = result["risk_score"]
     confidence = result["confidence"]
     verdict = result["verdict"]
@@ -372,7 +386,11 @@ def validate_final_result(result, evidence):
             "Explain the uncertainty and review whether the score is justified."
         )
 
-    if risk <= 20 and confidence >= 0.9 and verdict in high_risk_verdicts:
+    if (
+        risk <= 20
+        and confidence >= 0.9
+        and verdict in high_risk_verdicts
+    ):
         warnings.append(
             "The high-severity verdict conflicts with a low risk score "
             "despite high confidence. Review the assessment."
@@ -558,6 +576,12 @@ def run_agent_graph(user_input):
                     raise ValueError(
                         "Tool arguments must be a JSON object."
                     )
+
+                # FIX: Preserve the original user input for email analysis.
+                # The model may corrupt multiline text when constructing
+                # function arguments, so do not trust its reconstructed copy.
+                if tool_name == "analyze_email":
+                    arguments["email_text"] = user_input
 
                 tool_result = execute_tool(tool_name, arguments)
 

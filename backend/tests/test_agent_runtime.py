@@ -1,8 +1,12 @@
 
+import json
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from app.core.agent_runtime import (
     normalize_tool_evidence,
+    run_agent_graph,
     validate_final_result,
 )
 
@@ -31,6 +35,31 @@ def make_result(
         "mitre_findings": [],
         "cve_findings": [],
     }
+
+
+def make_tool_call(name, arguments, call_id="call-1"):
+    """Build a mock OpenAI function tool call."""
+    return SimpleNamespace(
+        id=call_id,
+        function=SimpleNamespace(
+            name=name,
+            arguments=json.dumps(arguments),
+        ),
+    )
+
+
+def make_llm_response(tool_calls=None, content=None):
+    """Build a mock OpenAI chat completion response."""
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    tool_calls=tool_calls,
+                    content=content,
+                )
+            )
+        ]
+    )
 
 
 class TestAgentRuntimeValidation(unittest.TestCase):
@@ -94,8 +123,6 @@ class TestAgentRuntimeValidation(unittest.TestCase):
             [evidence],
         )
 
-        # Vulnerability severity alone must not automatically
-        # determine whether a system has been compromised.
         self.assertEqual(validated["verdict"], "safe")
         self.assertTrue(validated["validation_warnings"])
 
@@ -119,15 +146,10 @@ class TestAgentRuntimeValidation(unittest.TestCase):
 
     def test_safe_verdict_with_very_high_risk_is_flagged(self):
         validated = validate_final_result(
-            make_result(
-                verdict="safe",
-                risk_score=95,
-            ),
+            make_result(verdict="safe", risk_score=95),
             [],
         )
 
-        # Validation warns about the contradiction without silently
-        # replacing the LLM's verdict.
         self.assertEqual(validated["verdict"], "safe")
         self.assertTrue(
             any(
@@ -183,6 +205,74 @@ class TestAgentRuntimeValidation(unittest.TestCase):
                 "rationale is missing or generic" in warning.lower()
                 for warning in validated["validation_warnings"]
             )
+        )
+
+
+class TestOriginalEmailPreservation(unittest.TestCase):
+
+    @patch("app.core.agent_runtime.execute_tool")
+    @patch("app.core.agent_runtime.run_llm")
+    def test_analyze_email_receives_original_input_unchanged(
+        self,
+        mock_run_llm,
+        mock_execute_tool,
+    ):
+        original_email = (
+            "Subject: Urgent Account Verification\n\n"
+            "Please review these links:\n"
+            "https://forms.gle/example\n"
+            "https://gvsu-login-security.example.com/verify-account\n\n"
+            "Thank you,\nIT Support"
+        )
+
+        # Simulate the model corrupting the multiline email argument.
+        malformed_email = (
+            "[https://forms.gle/example\n"
+            "https://gvsu-login-security.example.com/verify-account\n\n"
+            "Thank](https://forms.gle/example)"
+        )
+
+        mock_run_llm.side_effect = [
+            make_llm_response(
+                tool_calls=[
+                    make_tool_call(
+                        "analyze_email",
+                        {"email_text": malformed_email},
+                    )
+                ]
+            ),
+            make_llm_response(
+                content=json.dumps(make_result().__dict__)
+                if hasattr(make_result(), "__dict__")
+                else json.dumps(make_result())
+            ),
+        ]
+
+        mock_execute_tool.return_value = {
+            "email_addresses": [],
+            "urls_found": [
+                "https://forms.gle/example",
+                "https://gvsu-login-security.example.com/verify-account",
+            ],
+            "domains_found": [
+                "forms.gle",
+                "gvsu-login-security.example.com",
+            ],
+            "ips_found": [],
+            "cves_found": [],
+            "status": "success",
+        }
+
+        result = run_agent_graph(original_email)
+
+        mock_execute_tool.assert_called_once()
+        args = mock_execute_tool.call_args.args
+
+        self.assertEqual(args[0], "analyze_email")
+        self.assertEqual(args[1]["email_text"], original_email)
+        self.assertEqual(
+            result["investigation_log"][0]["arguments"]["email_text"],
+            original_email,
         )
 
 
