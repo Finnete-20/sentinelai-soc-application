@@ -9,6 +9,7 @@ if sys.platform.startswith("win"):
     except Exception:
         pass
 
+
 BACKEND_DIR = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
@@ -18,6 +19,7 @@ BACKEND_DIR = os.path.abspath(
 
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
+
 
 from app.core.agent_runtime import run_agent_graph
 
@@ -29,30 +31,51 @@ DATASET_PATH = os.path.join(
 
 
 def load_dataset():
-
     with open(
         DATASET_PATH,
         "r",
         encoding="utf-8"
     ) as f:
-
         return json.load(f)
 
 
-def predict(sample):
+def normalize_verdict(verdict):
+    """
+    Normalize agent verdicts into the labels used by the evaluator.
 
+    benign -> safe
+    """
+    verdict = str(verdict).strip().lower()
+
+    # Treat equivalent labels as the same verdict
+    if verdict == "benign":
+        verdict = "safe"
+
+    # Only allow recognized verdicts
+    if verdict not in [
+        "safe",
+        "suspicious",
+        "malicious"
+    ]:
+        verdict = "unknown"
+
+    return verdict
+
+
+def predict(sample):
     result = run_agent_graph(
         sample["input"]
     )
 
-    verdict = str(
-        result.get(
-            "verdict",
-            "unknown"
-        )
-    ).lower()
+    raw_verdict = result.get(
+        "verdict",
+        "unknown"
+    )
+
+    verdict = normalize_verdict(raw_verdict)
 
     print("\n" + "=" * 80)
+
     print("INPUT:")
     print(sample["input"])
 
@@ -68,20 +91,15 @@ def predict(sample):
         )
     )
 
-    print("=" * 80)
+    print("\nNORMALIZED PREDICTION:")
+    print(verdict)
 
-    if verdict not in [
-        "safe",
-        "suspicious",
-        "malicious"
-    ]:
-        verdict = "unknown"
+    print("=" * 80)
 
     return verdict
 
 
 def run_evaluation():
-
     dataset = load_dataset()
 
     tp = fp = tn = fn = 0
@@ -91,44 +109,39 @@ def run_evaluation():
     )
 
     for sample in dataset:
-
-        expected = sample["expected"].lower()
+        expected = str(
+            sample["expected"]
+        ).strip().lower()
 
         predicted = predict(sample)
 
+        # Malicious and suspicious count as positive detections
         if expected == "malicious":
-
             if predicted in [
                 "malicious",
                 "suspicious"
             ]:
-
                 tp += 1
 
                 print(
                     f"[PASS] malicious -> {predicted}"
                 )
-
             else:
-
                 fn += 1
 
                 print(
                     f"[FAIL] malicious -> {predicted}"
                 )
 
+        # Safe and benign expected labels count as negative cases
         else:
-
             if predicted == "safe":
-
                 tn += 1
 
                 print(
                     "[PASS] safe -> safe"
                 )
-
             else:
-
                 fp += 1
 
                 print(
@@ -194,17 +207,25 @@ def run_evaluation():
         )
     )
 
+    report_path = os.path.join(
+        os.path.dirname(__file__),
+        "report.json"
+    )
+
     with open(
-        "report.json",
+        report_path,
         "w",
         encoding="utf-8"
     ) as f:
-
         json.dump(
             report,
             f,
             indent=2
         )
+
+    print(
+        f"\nReport saved to: {report_path}"
+    )
 
 
 if __name__ == "__main__":
