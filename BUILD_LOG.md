@@ -1,371 +1,366 @@
-# SentinelAI Build Log
+# SentinelAI – Project Build Log
 
-# Project Goal
+## 1. Project Goal
 
-SentinelAI is an AI-powered Security Operations Center (SOC) analyst designed to investigate cybersecurity incidents using GPT-4o-mini, MCP tools, threat intelligence feeds, vulnerability intelligence, memory correlation, and executive reporting.
+SentinelAI is an AI-powered Security Operations Center (SOC) analyst designed to investigate cybersecurity incidents using GPT-4o-mini, MCP tools, threat intelligence feeds, vulnerability intelligence, investigation memory, and executive reporting.
 
-The goal was to build a system that behaves like a Tier 2 / Tier 3 security analyst rather than a simple chatbot. I wanted the application to investigate incidents, gather evidence, reason about findings, and explain conclusions in a way that would be useful to a real analyst.
+The goal was to build a system that behaves like a Tier 2 / Tier 3 security analyst rather than a simple chatbot. SentinelAI investigates incidents, gathers supporting evidence, reasons about findings, and presents conclusions in a format useful to security analysts.
 
----
+## 2. Why I Chose This Project
 
-# Why I Chose This Project
+My background is in software quality assurance and cybersecurity. Throughout my studies and professional experience, I observed how much analyst time is spent manually reviewing phishing emails, suspicious URLs, vulnerability reports, and threat intelligence data.
 
-My background is in software quality assurance and cybersecurity. Throughout my studies and professional experience, I have seen how much analyst time is spent manually reviewing phishing emails, suspicious URLs, vulnerability reports, and threat intelligence data.
+I wanted to develop a system that could automate parts of this investigation process while maintaining transparency about how conclusions were reached.
 
-I wanted to build something that could automate parts of that investigation process while still maintaining transparency about how conclusions were reached.
+Rather than creating another chatbot, I wanted to build an application that reflects real cybersecurity workflows and addresses a practical security problem.
 
-Rather than creating another chatbot, I wanted to build a system that reflected real cybersecurity workflows and solved a problem that I genuinely care about.
+My master's degree in cybersecurity provided an opportunity to combine security knowledge, software engineering, prompt engineering, AI system design, and application deployment into one project.
 
-Because my master's degree is in cybersecurity, building a SOC analyst was a natural fit. It allowed me to combine security knowledge, software engineering, prompt engineering, deployment, and AI system design into a single project.
+## 3. Initial Architecture
 
----
+The first version of SentinelAI was functional, but it was not fully agentic.
 
-# Initial Architecture
-
-The first version of SentinelAI worked, but it was not truly agentic.
-
-Most of the important decisions were being made by Python code rather than the language model.
+Many important investigation decisions were being made by Python code rather than the language model.
 
 Examples included:
 
-* Hardcoded phishing detection
-* Hardcoded risk scoring
-* Hardcoded verdict assignment
-* Hardcoded MITRE mappings
-* Python-controlled investigation flow
+- Hardcoded phishing detection.
+- Hardcoded risk scoring.
+- Hardcoded verdict assignment.
+- Hardcoded MITRE ATT&CK mappings.
+- Python-controlled investigation flow.
 
-The system could produce investigation results, but many conclusions were determined by predefined rules rather than model reasoning.
+Although the application could generate investigation results, many conclusions were determined by predefined rules rather than model reasoning.
 
-After reviewing the project requirements and receiving feedback throughout development, I realized the architecture behaved more like an automated workflow than an AI agent.
+After reviewing the project requirements and receiving feedback throughout development, I realized that the architecture behaved more like an automated workflow than an autonomous AI agent.
 
-This became the biggest focus of the project.
+This became the primary focus of the redesign.
 
----
+## 4. Prompt Engineering Iterations
 
-# Prompt Engineering Iterations
+### Prompt Version 1
 
-## Prompt Version 1
+The original system prompt focused primarily on phishing analysis.
 
-The original prompt focused primarily on phishing analysis.
+The model was instructed to investigate emails and generate structured reports.
 
-The model was instructed to investigate emails and produce structured reports.
+However, testing revealed several limitations:
 
-Problems I observed:
-
-* Tool usage was inconsistent
-* The model sometimes stopped investigating too early
-* Reports varied significantly between runs
-* The system relied heavily on Python rules
+- Tool usage was inconsistent.
+- The model sometimes stopped investigating too early.
+- Investigation reports varied between runs.
+- The system relied heavily on Python rules.
 
 Although the application worked, it was not making full use of the available tools.
 
----
-
-## Prompt Version 2
+### Prompt Version 2
 
 The system prompt was redesigned to position the model as a SOC analyst responsible for investigation decisions.
 
-The prompt emphasized:
+The updated prompt emphasized:
 
-* Evidence collection
-* Threat intelligence gathering
-* Tool usage
-* Risk assessment
-* MITRE ATT&CK mapping
-* Executive reporting
+- Evidence collection.
+- Threat intelligence gathering.
+- Tool selection and execution.
+- Risk assessment.
+- MITRE ATT&CK mapping.
+- Executive reporting.
 
-The prompt explicitly instructed the model to decide:
+The model was explicitly instructed to determine:
 
-* Which tools should be called
-* When additional investigation was needed
-* How evidence should be correlated
-* When an investigation should stop
+- Which tools should be called.
+- When additional investigation was necessary.
+- How evidence should be correlated.
+- When an investigation should stop.
+- How the final assessment should be generated.
 
-This significantly improved tool utilization and investigation quality.
+This improved tool utilization and investigation quality.
 
----
+## 5. Transition to an Agentic Architecture
 
-# Transition to Agentic Architecture
+One of the most important changes was shifting investigation decision-making away from Python code and into the language model.
 
-One of the most important changes in the project was shifting responsibility away from Python code and into the language model.
+Instead of Python determining the investigation path, verdict, risk score, and relevant evidence, the model became responsible for those decisions.
 
-Instead of Python deciding:
+The runtime was redesigned around the following process:
 
-* Which investigation path to follow
-* Which verdict to assign
-* Which risk score to use
-* Which evidence was important
+1. The model receives the investigation request.
+2. The model determines whether tools are needed.
+3. The model selects the appropriate tools.
+4. The application executes the selected tools.
+5. Tool results are returned to the model.
+6. The model determines whether further investigation is required.
+7. The model generates the final assessment.
 
-the model became responsible for those decisions.
+The Python layer became an execution engine rather than the primary decision-making component.
 
-The runtime was redesigned so that:
+This redesign transformed SentinelAI from a largely rule-based workflow into an agentic investigation system.
 
-1. The model receives the user request.
-2. The model decides whether tools are needed.
-3. The model selects tools.
-4. Tool results are returned.
-5. The model determines whether additional investigation is required.
-6. The model generates the final assessment.
+## 6. MCP Tool Development
 
-The Python layer became an execution engine rather than a decision engine.
-
-This redesign transformed SentinelAI from a rule-based workflow into an agentic system.
-
----
-
-# MCP Tool Development
-
-A major requirement of the project was implementing MCP tools.
+A major project requirement was implementing Model Context Protocol (MCP) tools.
 
 I created and exposed seven tools to GPT-4o-mini.
 
-### analyze_email
+### 6.1 analyze_email
 
-Extracts:
+Extracts relevant indicators from submitted email content, including:
 
-* Email addresses
-* URLs
-* Domains
-* IP addresses
-* CVEs
+- Email addresses.
+- URLs.
+- Domains.
+- IP addresses.
+- CVE identifiers.
 
-### url_reputation_check
+### 6.2 url_reputation_check
 
-Retrieves:
+Retrieves URL reputation information through VirusTotal, including:
 
-* VirusTotal reputation data
-* Threat intelligence
-* Detection statistics
+- Threat intelligence.
+- Reputation data.
+- Detection statistics.
 
-### cve_lookup
+### 6.3 cve_lookup
 
-Retrieves:
+Retrieves vulnerability information from the National Vulnerability Database (NVD), including:
 
-* Live vulnerability information
-* CVSS scores
-* Severity information
-* Vulnerability descriptions
+- CVE descriptions.
+- CVSS scores.
+- Severity information.
+- Vulnerability details.
 
-### memory_lookup
+### 6.4 memory_lookup
 
-Searches previous investigations.
+Searches previous investigations for relevant historical findings.
 
-### memory_store
+### 6.5 memory_store
 
-Stores investigation findings.
+Stores investigation findings for future reference and correlation.
 
-### mitre_mapper
+### 6.6 mitre_mapper
 
-Provides MITRE ATT&CK knowledge.
+Provides MITRE ATT&CK knowledge to support mapping observed activity to known adversary tactics and techniques.
 
-### generate_executive_report
+### 6.7 generate_executive_report
 
-Creates executive-level investigation summaries.
+Generates structured, executive-level investigation summaries.
 
-The model determines when these tools should be used.
+The model determines when these tools should be used. The application executes the requested tool, returns its results, and allows the model to continue reasoning.
 
-This satisfies the MCP requirement because the model decides when to call a tool, the application executes the tool, and the tool result is returned to the model for further reasoning.
+This supports the project's agentic design: the model decides when to call tools, while the application handles their execution.
 
----
+## 7. Grounding and Real-Time Threat Intelligence
 
-# Grounding and Real-Time Data
+An important objective was ensuring that SentinelAI relied on real-world information rather than only the model's training data.
 
-One of my goals was ensuring that SentinelAI was grounded in real-world information rather than relying only on model training data.
-
-To achieve this, I integrated:
+The initial integrations included:
 
 ### VirusTotal
 
-Used for live URL reputation analysis.
+Used to retrieve URL reputation and threat detection information.
 
 ### National Vulnerability Database (NVD)
 
-Used for live CVE intelligence.
+Used to retrieve vulnerability descriptions, CVSS scores, and severity information.
 
 ### MITRE ATT&CK
 
-Used for attacker behavior mapping.
+Used to support mapping investigation findings to known attacker tactics and techniques.
 
 ### Investigation Memory
 
-Used for historical correlation.
+Used to retrieve and store historical investigation findings for correlation.
 
-These sources provide information that the model would not otherwise know and allow investigations to be based on current intelligence rather than assumptions.
+These integrations allow the model to incorporate external information into its assessments.
 
----
+## 8. Challenges Encountered During Development
 
-# Challenges I Encountered
+### Challenge 1: Understanding Agentic Systems
 
-Several challenges appeared during development.
+The biggest architectural challenge was understanding the difference between an application that uses an LLM and one that is genuinely agentic.
 
-## Challenge 1: Understanding Agentic Systems
-
-The biggest challenge was understanding the difference between a system that uses an LLM and a system that is genuinely agentic.
-
-My early versions worked, but most decisions were still controlled by Python.
+My early versions worked, but most investigation decisions were still controlled by Python.
 
 Refactoring the application so that the model made investigation decisions required significant architectural changes.
 
-This was the most important redesign in the entire project.
+This became the most important redesign in the project.
 
----
+### Challenge 2: Deployment
 
-## Challenge 2: Deployment
+The application worked locally before it was successfully deployed.
 
-The application worked locally long before it worked in production.
+Some of the challenges encountered included:
 
-I encountered:
+- Cross-Origin Resource Sharing (CORS) issues.
+- Environment variable configuration.
+- API connectivity failures.
+- Frontend and backend communication problems.
+- Render deployment issues.
 
-* CORS issues
-* Environment variable problems
-* API connectivity failures
-* Frontend-backend communication issues
-* Render deployment issues
+Resolving these issues helped me understand the additional engineering required to make AI applications accessible outside a local development environment.
 
-Resolving these problems helped me better understand what is required to deploy AI systems for real users rather than just running them locally.
+### Challenge 3: External API Reliability
 
----
+SentinelAI depends on external services for threat intelligence and vulnerability information.
 
-## Challenge 3: External API Reliability
+During development, some services occasionally returned temporary failures or timed out.
 
-Because SentinelAI depends on live services, occasional API failures occurred.
+For example:
 
-The NVD API occasionally timed out or returned temporary failures.
+- The NVD API occasionally timed out or returned temporary failures.
+- VirusTotal depended on external service availability and API responses.
 
-VirusTotal also depended on external availability and API responses.
+I improved error handling and fallback behavior so that investigations could continue when external services were temporarily unavailable.
 
-Handling these situations required improving error handling and implementing fallback behavior so investigations could continue even when services were temporarily unavailable.
+### Challenge 4: Vulnerability Classification
 
-This made the application significantly more reliable.
+One of the most important discoveries occurred during testing.
 
----
+SentinelAI successfully retrieved information for CVE-2021-44228 (Log4Shell), but initially classified it as safe.
 
-## Challenge 4: Vulnerability Classification
+The problem was that the reasoning process focused too heavily on active exploitation evidence instead of properly accounting for the vulnerability's severity.
 
-One of the most valuable discoveries occurred during testing.
+This demonstrated that retrieving accurate information does not automatically guarantee an accurate final assessment.
 
-SentinelAI successfully retrieved information for CVE-2021-44228 (Log4Shell) but initially classified it as safe because the reasoning process focused too heavily on active exploitation evidence instead of vulnerability severity.
+To address this issue, I improved the investigation workflow so that CVSS severity information was appropriately reflected in the final assessment.
 
-This showed me that retrieving correct information does not automatically guarantee a correct conclusion.
+## 9. Evaluation Framework
 
-To address this, I updated the investigation workflow so that critical vulnerability severity is properly reflected in final assessments.
+To evaluate SentinelAI, I created a dataset containing 55 cybersecurity investigation scenarios.
 
-The final system now correctly identifies Log4Shell as a critical vulnerability with an appropriate risk score.
+The dataset covers:
 
----
+- Phishing emails.
+- Suspicious URLs.
+- Benign URLs.
+- Vulnerability investigations.
+- Threat intelligence workflows.
 
-# Evaluation
-To evaluate SentinelAI, I created a dataset containing 55 cybersecurity investigation scenarios covering phishing emails, suspicious URLs, benign URLs, vulnerability investigations, and threat intelligence workflows.
+**Dataset location:**
 
-Location:
+`evaluation/eval_dataset.json`
 
-evaluation/eval_dataset.json
+The evaluation framework measures:
 
-Metrics collected:
+- Accuracy.
+- Precision.
+- Recall.
+- F1 Score.
 
-* Accuracy
-* Precision
-* Recall
-* F1 Score
+### Final Evaluation Results
 
-Final Results:
+| Metric | Result |
+|---|---:|
+| Accuracy | 98.2% |
+| Precision | 96.2% |
+| Recall | 100% |
+| F1 Score | 98.0% |
+| True Positives | 25 |
+| True Negatives | 29 |
+| False Positives | 1 |
+| False Negatives | 0 |
 
-* Accuracy: 98.2%
-* Precision: 96.2%
-* Recall: 100%
-* F1 Score: 98.0%
-* True Positives: 25
-* True Negatives: 29
-* False Positives: 1
-* False Negatives: 0
+The evaluation process was important because it revealed situations where the system behaved differently from what was expected.
 
-One of the most valuable parts of the evaluation process was identifying failure cases.
+Rather than relying only on successful demonstrations, I used structured test cases to identify weaknesses and guide improvements.
 
-The evaluation framework revealed situations where the system behaved differently than expected and helped guide improvements throughout development.
+The Log4Shell classification issue was one example. SentinelAI retrieved the vulnerability information correctly but initially produced an incorrect assessment because of a weakness in its reasoning process.
 
-A particularly important discovery involved CVE-2021-44228 (Log4Shell). During testing, SentinelAI correctly retrieved vulnerability information but initially produced an incorrect assessment because the reasoning process focused too heavily on active exploitation evidence rather than vulnerability severity. This issue would have been difficult to discover through casual testing and highlighted the importance of structured evaluation.
+This issue reinforced the importance of evaluating AI systems using realistic scenarios.
 
-Rather than focusing only on successful demonstrations, I intentionally documented failures and used them to improve the investigation workflow.
+### Reproducing the Evaluation
 
-The evaluation can be reproduced by running:
+The evaluation can be executed using:
 
+```bash
 python evaluation/eval.py
+```
 
-Final evaluation results demonstrate that SentinelAI can accurately investigate cybersecurity incidents while maintaining strong precision and recall across multiple investigation types.
+The evaluation script processes the dataset, compares predicted verdicts against expected labels, calculates the performance metrics, and generates a JSON report.
 
----
+The report is saved as:
 
-# Changes Made After Draft Feedback
+`evaluation/report.json`
+
+## 10. Improvements Following Instructor Feedback
 
 Instructor feedback identified an important issue involving CVE-2021-44228 (Log4Shell).
 
-Although SentinelAI correctly retrieved vulnerability information from the NVD API, the final assessment could incorrectly classify critical vulnerabilities as safe because the reasoning process focused too heavily on active exploitation evidence.
+Although SentinelAI correctly retrieved vulnerability information from the NVD API, the final assessment could incorrectly classify critical vulnerabilities as safe.
 
-To address this:
+The reasoning process focused too heavily on active exploitation evidence instead of adequately considering vulnerability severity.
 
-* Vulnerability reasoning was improved
-* CVSS severity information was incorporated into assessments
-* Investigation outputs were updated to better reflect vulnerability risk
-* Additional testing was performed using known high-severity vulnerabilities
-* Fallback behavior was added when external vulnerability services are temporarily unavailable
+To address this issue, I made the following improvements:
 
-The final system now correctly identifies Log4Shell as a critical vulnerability with a risk score of 95 and supporting MITRE ATT&CK evidence.
+- Improved vulnerability reasoning.
+- Incorporated CVSS severity information into assessments.
+- Updated investigation outputs to better reflect vulnerability risk.
+- Performed additional testing using known high-severity vulnerabilities.
+- Improved fallback behavior when external vulnerability services are temporarily unavailable.
 
-Example output:
+The final system correctly identifies Log4Shell as a critical vulnerability, with a risk score of 95 and supporting MITRE ATT&CK evidence.
 
+**Example output:**
+
+```json
 {
-"verdict": "critical",
-"confidence": 0.9,
-"risk_score": 95,
-"incident_type": "critical_vulnerability"
+  "verdict": "critical",
+  "confidence": 0.9,
+  "risk_score": 95,
+  "incident_type": "critical_vulnerability"
 }
+```
 
-This change significantly improved evaluation performance and eliminated false negatives within the evaluation dataset.
+This improvement addressed the identified classification issue and eliminated false negatives within the evaluation dataset.
 
-I also expanded the documentation to better explain architectural decisions, evaluation methodology, deployment challenges, and lessons learned.
+I also expanded the project documentation to explain the architecture, evaluation methodology, deployment challenges, and lessons learned.
 
+## 11. What Surprised Me
 
----
+One thing that surprised me was that developing the tools was often easier than getting the model to use them consistently.
 
-# What Surprised Me
+The early versions already contained the required components, but investigations sometimes felt scripted because Python was still making too many decisions.
 
-One thing that surprised me during development was that building the tools was often easier than getting the model to use them consistently.
+Another important discovery was how much evaluation contributed to improving the application.
 
-Early versions of the project had all of the required components, but investigations sometimes felt scripted because Python was still making too many decisions.
+Several issues only became visible after running structured test cases. The Log4Shell classification issue is a good example: the vulnerability information was retrieved correctly, but the final reasoning was incorrect.
 
-Another surprise was how important evaluation became. Several issues only became visible after running structured test cases. The Log4Shell classification issue is a good example. The vulnerability information was retrieved correctly, but evaluation exposed a flaw in the downstream reasoning process that would have been easy to miss through casual testing.
+This reinforced the importance of testing AI systems with realistic scenarios rather than relying on a few successful demonstrations.
 
-This reinforced the importance of testing AI systems with realistic scenarios rather than relying on a handful of successful examples.
-
----
-
-# What I Learned
+## 12. What I Learned
 
 This project taught me that building trustworthy AI systems requires much more than writing prompts.
 
-The most important lesson was learning how prompting, grounding, tool usage, architecture, evaluation, and deployment all interact.
+The most important lessons were:
 
-I also learned that AI systems can still make incorrect decisions even when they have access to correct information. Reliable systems require both model reasoning and engineering safeguards.
+- **Agentic architecture:** Understanding how to move decision-making from predefined Python logic to model-driven reasoning.
+- **Prompt engineering:** Designing system prompts that guide investigation behavior and tool usage.
+- **Grounding:** Using external intelligence sources to support model assessments.
+- **MCP integration:** Defining tools and allowing the model to decide when they should be executed.
+- **Evaluation:** Using structured datasets and performance metrics to identify weaknesses.
+- **Reliability:** Handling external API failures and temporary service interruptions.
+- **Deployment:** Moving an AI application from local development into a production environment.
 
-Most importantly, I learned how to move from a prototype that demonstrates an idea to a deployed system that another person can actually use.
+Most importantly, I learned that AI systems can still produce incorrect conclusions even when they have access to accurate information. Reliable AI applications require careful architecture, evaluation, and engineering safeguards.
 
----
+## 13. Final Outcome
 
-# Final Outcome
+SentinelAI evolved from a partially rule-based cybersecurity investigation application into an agentic AI SOC analyst.
 
-SentinelAI evolved from a partially rule-based security investigation application into a fully agentic AI SOC analyst.
+The completed project demonstrates:
 
-The final system demonstrates:
+- System prompt engineering.
+- Agentic reasoning.
+- Grounding with external information.
+- MCP tool definition and execution.
+- Threat intelligence integration.
+- Vulnerability intelligence retrieval.
+- Investigation memory.
+- MITRE ATT&CK mapping.
+- Structured evaluation.
+- Application deployment.
+- Iterative testing and improvement.
 
-* Prompt engineering
-* System prompting
-* Grounding
-* MCP tool definition
-* MCP tool execution
-* Agentic reasoning
-* Live threat intelligence integration
-* Evaluation
-* Deployment
-* Iterative improvement
+The final result is a deployed AI application designed to investigate cybersecurity incidents using model-driven decisions, external intelligence, and supporting evidence.
 
-The result is a deployed AI application capable of performing autonomous cybersecurity investigations using real-world intelligence and model-driven decision making.
+The project represents the practical application of cybersecurity knowledge, software engineering, and AI system development in building a more autonomous security investigation assistant.
