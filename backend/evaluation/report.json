@@ -1,10 +1,10 @@
 {
-  "accuracy": 0.836,
-  "precision": 0.735,
+  "accuracy": 0.982,
+  "precision": 0.962,
   "recall": 1.0,
-  "f1": 0.847,
+  "f1": 0.98,
   "tp": 25,
-  "fp": 9,
-  "tn": 21,
+  "fp": 1,
+  "tn": 29,
   "fn": 0
 }
