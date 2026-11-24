@@ -131,6 +131,20 @@ def execute_tool(tool_name, arguments):
     )
 
     if not valid:
+        # A non-globally-routable IP is intentionally excluded from AbuseIPDB.
+        # Record this as skipped, not as a tool failure.
+        if (
+            tool_name == "abuseipdb_lookup"
+            and isinstance(validation_error, str)
+            and validation_error.startswith("AbuseIPDB lookup skipped:")
+        ):
+            return {
+                "source": tool_name,
+                "status": "skipped",
+                "available": False,
+                "message": validation_error,
+            }
+
         return {
             "source": tool_name,
             "status": "error",
@@ -286,7 +300,9 @@ def normalize_tool_evidence(tool_name, arguments, result):
         tool_name,
     )
 
-    failed = (
+    skipped = result.get("status") == "skipped"
+
+    failed = not skipped and (
         bool(result.get("error"))
         or result.get("status") in {
             "error",
@@ -304,6 +320,7 @@ def normalize_tool_evidence(tool_name, arguments, result):
             "message",
             "analysis",
             "summary",
+            "message",
             "error",
         ),
         "Tool returned data; interpretation required.",
@@ -358,13 +375,19 @@ def normalize_tool_evidence(tool_name, arguments, result):
         "severity": _infer_severity(result),
         "confidence": _infer_confidence(result),
         "direction": "missing" if failed else "contextual",
-        "status": "error" if failed else "success",
-        "available": not failed,
+        "status": "skipped" if skipped else ("error" if failed else "success"),
+        "available": False if skipped or failed else True,
         "supporting_evidence": [],
         "contradictory_evidence": [],
         "missing_evidence": [],
         "raw_result": result,
     }
+
+    if skipped:
+        # A deliberate policy skip is not a provider failure and is not
+        # evidence for or against the indicator. Keep it visible in the
+        # investigation log without adding it to missing-evidence findings.
+        return normalized
 
     if failed:
         normalized["missing_evidence"].append(
@@ -569,6 +592,7 @@ def build_llm_evidence_payload(evidence_items):
         "correlation": correlate_evidence(evidence_items),
         "reasoning_rules": [
             "A failed or unavailable provider is missing evidence, not benign evidence.",
+            "A deliberately skipped lookup is contextual only; it is not a tool failure and is not supporting or contradictory evidence.",
             "A provider no-results response is contextual coverage information, not supporting or contradictory evidence, and does not prove an indicator is benign.",
             "Only explicit positive or negative provider findings should enter supporting or contradictory evidence lists.",
             "Compare independent sources and identify conflicts.",
@@ -749,7 +773,7 @@ def validate_final_result(result, evidence_items):
     if not isinstance(missing, list):
         missing = []
 
-    # Always retain provider failures in the final missing-evidence list.
+    
     for item in evidence_items:
         missing.extend(
             item.get("missing_evidence", [])
@@ -823,14 +847,43 @@ def validate_final_result(result, evidence_items):
             "distinguishes vulnerability severity from confirmed exploitation."
         )
 
+    # Preserve structured fields returned by the LLM so the frontend can
+    # display the complete assessment instead of losing these fields here.
+    incident_type = _safe_text(
+        result.get("incident_type"),
+        "unknown",
+    ).strip() or "unknown"
+
+    executive_summary = _safe_text(
+        result.get("executive_summary"),
+        reason,
+    ).strip() or reason
+
+    mitre_findings = result.get("mitre_findings")
+    if not isinstance(mitre_findings, list):
+        mitre_findings = []
+
+    cve_findings = result.get("cve_findings")
+    if not isinstance(cve_findings, list):
+        cve_findings = []
+
+    recommended_actions = result.get("recommended_actions")
+    if not isinstance(recommended_actions, list):
+        recommended_actions = []
+
     return {
         "verdict": verdict,
         "confidence": confidence,
         "risk_level": risk_level,
         "risk_score": risk_score,
+        "incident_type": incident_type,
+        "executive_summary": executive_summary,
         "supporting_evidence": supporting,
         "contradictory_evidence": contradictory,
         "missing_evidence": missing,
+        "mitre_findings": mitre_findings,
+        "cve_findings": cve_findings,
+        "recommended_actions": recommended_actions,
         "reason": reason,
         "rationale": reason,  # Backward compatibility with existing frontend.
         "warnings": warnings,
@@ -847,6 +900,11 @@ def make_error_result(message, evidence_items=None):
         "supporting_evidence": [],
         "contradictory_evidence": [],
         "missing_evidence": [],
+        "incident_type": "unknown",
+        "executive_summary": message,
+        "mitre_findings": [],
+        "cve_findings": [],
+        "recommended_actions": [],
         "reason": message,
         "rationale": message,
         "warnings": [],

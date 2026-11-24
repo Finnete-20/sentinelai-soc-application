@@ -9,39 +9,35 @@ function formatLabel(value) {
 }
 
 function formatConfidence(value) {
-  if (value === null || value === undefined || value === "") {
-    return "N/A";
-  }
-
+  if (value === null || value === undefined || value === "") return "N/A";
   const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return String(value);
-  }
-
+  if (!Number.isFinite(number)) return String(value);
   return `${Math.round(number <= 1 ? number * 100 : number)}%`;
 }
 
 function formatValue(value) {
-  if (value === null || value === undefined || value === "") {
-    return "Not provided";
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-
+  if (value === null || value === undefined || value === "") return "Not provided";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   if (Array.isArray(value)) {
-    return value.length
-      ? value.map((item) => formatValue(item)).join(", ")
-      : "None";
+    return value.length ? value.map((item) => formatValue(item)).join(", ") : "None";
   }
-
-  if (typeof value === "object") {
-    return JSON.stringify(value, null, 2);
-  }
-
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
   return String(value);
+}
+
+/*
+ * Evidence is sometimes returned as an object and sometimes as a JSON string.
+ * Parse JSON strings for display without changing the original API response.
+ */
+function normalizeRecord(item) {
+  if (typeof item !== "string") return item;
+  const trimmed = item.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return item;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return item;
+  }
 }
 
 function EvidenceList({ title, items, emptyMessage, variant = "" }) {
@@ -58,8 +54,9 @@ function EvidenceList({ title, items, emptyMessage, variant = "" }) {
         <p className="muted">{emptyMessage}</p>
       ) : (
         <div className="evidence-grid">
-          {list.map((item, index) => {
-            const isObject = typeof item === "object" && item !== null;
+          {list.map((rawItem, index) => {
+            const item = normalizeRecord(rawItem);
+            const isObject = typeof item === "object" && item !== null && !Array.isArray(item);
 
             return (
               <article className="evidence-card" key={`${title}-${index}`}>
@@ -67,22 +64,27 @@ function EvidenceList({ title, items, emptyMessage, variant = "" }) {
                   <>
                     <div className="evidence-meta">
                       <span className="evidence-source">
-                        {formatLabel(item.source || item.provider || "Evidence")}
+                        {formatLabel(item.source || item.provider || item.tool || "Evidence")}
                       </span>
-
                       {item.indicator_type && (
-                        <span className="result-tag">
-                          {formatLabel(item.indicator_type)}
-                        </span>
+                        <span className="result-tag">{formatLabel(item.indicator_type)}</span>
                       )}
                     </div>
 
-                    {item.indicator && (
-                      <p className="evidence-indicator">{item.indicator}</p>
+                    {(item.indicator || item.value || item.cve || item.ip || item.url) && (
+                      <p className="evidence-indicator">
+                        {formatValue(item.indicator || item.value || item.cve || item.ip || item.url)}
+                      </p>
                     )}
 
                     <p className="evidence-finding">
-                      {formatValue(item.finding || item.description || item)}
+                      {formatValue(
+                        item.finding ||
+                          item.description ||
+                          item.details ||
+                          item.reason ||
+                          item
+                      )}
                     </p>
 
                     {item.severity && (
@@ -92,7 +94,7 @@ function EvidenceList({ title, items, emptyMessage, variant = "" }) {
                     )}
                   </>
                 ) : (
-                  <p className="evidence-finding">{String(item)}</p>
+                  <p className="evidence-finding">{formatValue(item)}</p>
                 )}
               </article>
             );
@@ -125,46 +127,99 @@ function MitreFindings({ findings }) {
         </div>
       ) : (
         <div className="result-list">
-          {items.map((item, index) => {
-            if (typeof item !== "object" || item === null) {
+          {items.map((rawItem, index) => {
+            const item = normalizeRecord(rawItem);
+            if (typeof item !== "object" || item === null || Array.isArray(item)) {
               return (
                 <article className="result-item" key={`mitre-${index}`}>
-                  <p>{String(item)}</p>
+                  <p>{formatValue(item)}</p>
                 </article>
               );
             }
 
+            const techniqueId = item.technique_id || item.technique || item.id;
+            const techniqueName =
+              item.technique_name || item.name || item.technique_description;
+            const detection =
+              item.detection_recommendations || item.detection || item.detection_guidance;
+            const evidence = item.evidence || item.supporting_evidence;
+
             return (
               <article className="result-item" key={`mitre-${index}`}>
                 <div className="result-item-header">
-                  <strong>{item.technique || item.id || "Technique"}</strong>
-                  {item.name && <span className="result-tag">{item.name}</span>}
+                  <strong>
+                    {techniqueId || "Technique"}
+                    {techniqueName ? ` — ${techniqueName}` : ""}
+                  </strong>
                 </div>
 
                 {item.tactic && (
-                  <p>
-                    <strong>Tactic:</strong> {item.tactic}
-                  </p>
+                  <p><strong>Tactic:</strong> {formatValue(item.tactic)}</p>
                 )}
-
-                {item.description && <p>{item.description}</p>}
-
                 {item.justification && (
+                  <p><strong>Justification:</strong> {formatValue(item.justification)}</p>
+                )}
+                {evidence && (
+                  <p><strong>Evidence:</strong> {formatValue(evidence)}</p>
+                )}
+                {detection && (
+                  <p><strong>Detection recommendations:</strong> {formatValue(detection)}</p>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CveFindings({ findings }) {
+  const items = Array.isArray(findings) ? findings : [];
+
+  return (
+    <section className="section">
+      <div className="section-heading">
+        <h3>CVE Findings</h3>
+        <span className="section-count">{items.length}</span>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="muted">No CVE findings were returned.</p>
+      ) : (
+        <div className="result-list">
+          {items.map((rawItem, index) => {
+            const item = normalizeRecord(rawItem);
+            if (typeof item !== "object" || item === null || Array.isArray(item)) {
+              return (
+                <article className="result-item" key={`cve-${index}`}>
+                  <p>{formatValue(item)}</p>
+                </article>
+              );
+            }
+
+            const cveId = item.cve || item.cve_id || item.id;
+            const description = item.description || item.finding;
+            const severity = item.severity || item.cvss_severity;
+            const score = item.cvss_score ?? item.cvss ?? item.base_score;
+
+            return (
+              <article className="result-item" key={`cve-${index}`}>
+                <div className="result-item-header">
+                  <strong>{cveId || "CVE finding"}</strong>
+                </div>
+                {(severity || score !== undefined) && (
                   <p>
-                    <strong>Justification:</strong> {item.justification}
+                    <strong>Severity:</strong> {formatValue(severity)}
+                    {score !== undefined && ` · CVSS: ${formatValue(score)}`}
                   </p>
                 )}
-
-                {item.evidence && (
-                  <p>
-                    <strong>Evidence:</strong> {item.evidence}
-                  </p>
+                {description && <p><strong>Description:</strong> {formatValue(description)}</p>}
+                {item.affected_products && (
+                  <p><strong>Affected products:</strong> {formatValue(item.affected_products)}</p>
                 )}
-
-                {item.detection && (
-                  <p>
-                    <strong>Detection:</strong> {item.detection}
-                  </p>
+                {item.justification && (
+                  <p><strong>Incident relevance:</strong> {formatValue(item.justification)}</p>
                 )}
               </article>
             );
@@ -190,21 +245,17 @@ function InvestigationTimeline({ timeline }) {
       ) : (
         <div className="timeline-list">
           {items.map((entry, index) => {
-            const toolName =
-              entry?.tool || entry?.name || `Investigation step ${index + 1}`;
-
+            const toolName = entry?.tool || entry?.name || `Investigation step ${index + 1}`;
             const status = entry?.status || entry?.result?.status || "unknown";
             const toolResult = entry?.result;
             const argumentsUsed = entry?.arguments;
-            const statusClass = String(status).toLowerCase();
+            const statusClass = String(status).toLowerCase().replaceAll(" ", "-");
 
             return (
               <details className="timeline-item" key={`${toolName}-${index}`}>
                 <summary>
                   <span className="timeline-number">{index + 1}</span>
-
                   <span className="timeline-tool">{formatLabel(toolName)}</span>
-
                   <span className={`status-tag status-${statusClass}`}>
                     {formatLabel(status)}
                   </span>
@@ -221,17 +272,13 @@ function InvestigationTimeline({ timeline }) {
                   {toolResult && (
                     <div className="timeline-block">
                       <h4>Result</h4>
-
                       {toolResult.error ? (
                         <p className="error">{formatValue(toolResult.error)}</p>
                       ) : (
                         <>
                           {toolResult.finding && (
-                            <p className="timeline-finding">
-                              {toolResult.finding}
-                            </p>
+                            <p className="timeline-finding">{formatValue(toolResult.finding)}</p>
                           )}
-
                           <details className="nested-raw">
                             <summary>View technical details</summary>
                             <pre>{JSON.stringify(toolResult, null, 2)}</pre>
@@ -257,20 +304,15 @@ export default function Investigator() {
 
   async function handleSubmit(event) {
     event?.preventDefault();
-
     if (!input.trim() || loading) return;
 
     setLoading(true);
     setResult(null);
 
     try {
-      const cleanedInput = input
-        .replace(
-          /\[((?:https?:\/\/)[^\]]+)\]\(((?:https?:\/\/)[^)]+)\)/gi,
-          "$2"
-        )
-        .trim();
-
+      // URL normalization is handled centrally by frontend/src/api/client.js.
+      // Keeping this value as plain trimmed text avoids fragile duplicate regexes.
+      const cleanedInput = input.trim();
       const response = await investigate(cleanedInput);
       setResult(response);
     } catch (error) {
@@ -290,10 +332,7 @@ export default function Investigator() {
   return (
     <main className="page">
       <header className="header">
-        <div className="brand-mark" aria-hidden="true">
-          🛡️
-        </div>
-
+        <div className="brand-mark" aria-hidden="true">🛡️</div>
         <p className="eyebrow">SECURITY OPERATIONS CENTER</p>
         <h1>SentinelAI SOC Analyst</h1>
         <p className="subtitle">
@@ -307,10 +346,7 @@ export default function Investigator() {
             <p className="eyebrow">NEW INVESTIGATION</p>
             <h2>Analyze an incident</h2>
           </div>
-
-          <span className="live-indicator">
-            <span /> AI ANALYST
-          </span>
+          <span className="live-indicator"><span /> AI ANALYST</span>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -332,7 +368,6 @@ Review this suspicious email...`}
 
           <div className="input-footer">
             <span className="muted">Include any available incident context.</span>
-
             <button
               className="button"
               type="submit"
@@ -380,13 +415,14 @@ Review this suspicious email...`}
                 {formatValue(data.risk_score)}
                 <span className="metric-unit"> / 100</span>
               </div>
+              {data.risk_level && (
+                <div className="muted">Risk level: {formatLabel(data.risk_level)}</div>
+              )}
             </article>
 
             <article className="card">
               <div className="card-title">CONFIDENCE</div>
-              <div className="card-value">
-                {formatConfidence(data.confidence)}
-              </div>
+              <div className="card-value">{formatConfidence(data.confidence)}</div>
             </article>
 
             <article className="card">
@@ -407,7 +443,7 @@ Review this suspicious email...`}
 
           <section className="section">
             <h3>Analyst Assessment</h3>
-            <p>{formatValue(data.reason)}</p>
+            <p>{formatValue(data.reason || data.rationale)}</p>
           </section>
 
           <EvidenceList
@@ -432,27 +468,24 @@ Review this suspicious email...`}
           />
 
           <MitreFindings findings={data.mitre_findings} />
+          <CveFindings findings={data.cve_findings} />
 
-          {Array.isArray(data.recommended_actions) &&
-            data.recommended_actions.length > 0 && (
-              <section className="section">
-                <div className="section-heading">
-                  <h3>Recommended Actions</h3>
-                  <span className="section-count">
-                    {data.recommended_actions.length}
-                  </span>
-                </div>
-
-                <ol className="action-list">
-                  {data.recommended_actions.map((action, index) => (
-                    <li key={`action-${index}`}>
-                      <span className="action-number">{index + 1}</span>
-                      <span>{formatValue(action)}</span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            )}
+          {Array.isArray(data.recommended_actions) && data.recommended_actions.length > 0 && (
+            <section className="section">
+              <div className="section-heading">
+                <h3>Recommended Actions</h3>
+                <span className="section-count">{data.recommended_actions.length}</span>
+              </div>
+              <ol className="action-list">
+                {data.recommended_actions.map((action, index) => (
+                  <li key={`action-${index}`}>
+                    <span className="action-number">{index + 1}</span>
+                    <span>{formatValue(action)}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
 
           <InvestigationTimeline timeline={data.investigation_log} />
 

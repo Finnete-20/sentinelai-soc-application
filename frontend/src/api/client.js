@@ -1,14 +1,11 @@
 
-const BASE_URL = "https://sentinelai-soc-backend.onrender.com";
+const BASE_URL = import.meta.env.DEV
+    ? "http://127.0.0.1:8000"
+    : "https://sentinelai-soc-backend.onrender.com";
 
 /**
  * Convert Markdown-wrapped URLs into plain URLs before sending
  * investigation input to the backend.
- *
- * Example:
- * [http://example.com/login](http://example.com/login)
- * becomes:
- * http://example.com/login
  */
 function normalizeInvestigationInput(input) {
     if (typeof input !== "string") {
